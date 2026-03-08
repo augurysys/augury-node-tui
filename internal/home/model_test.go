@@ -1,6 +1,8 @@
 package home
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -184,6 +186,37 @@ func TestHomeModel_KeySpace_TogglesPlatform(t *testing.T) {
 	m = model.(*Model)
 	if !m.IsPlatformSelected(id) {
 		t.Error("space should toggle platform selection")
+	}
+}
+
+func TestDeveloperDownloads_ViewRendersSourceStateWhenIndexPresent(t *testing.T) {
+	dir := t.TempDir()
+	dd := filepath.Join(dir, "developer-downloads")
+	if err := os.MkdirAll(dd, 0755); err != nil {
+		t.Fatal(err)
+	}
+	content := `{"platforms":[{"name":"node2","enabled":true,"source":"built"},{"name":"moxa-uc3100","enabled":true,"source":"hydrated"}]}`
+	if err := os.WriteFile(filepath.Join(dd, "index.json"), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	st := status.RepoStatus{Root: dir, Branch: "main", SHA: "x"}
+	m := NewModel(st, platform.Registry())
+	view := m.View()
+	if !strings.Contains(view, "built") {
+		t.Errorf("View should contain built; got %q", view)
+	}
+	if !strings.Contains(view, "hydrated") {
+		t.Errorf("View should contain hydrated; got %q", view)
+	}
+}
+
+func TestDeveloperDownloads_ViewShowsUnavailableWhenIndexAbsent(t *testing.T) {
+	dir := t.TempDir()
+	st := status.RepoStatus{Root: dir, Branch: "main", SHA: "x"}
+	m := NewModel(st, platform.Registry())
+	view := m.View()
+	if !strings.Contains(view, "unavailable") {
+		t.Errorf("View should contain unavailable when index absent; got %q", view)
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/augurysys/augury-node-tui/internal/data/developerdownloads"
 	"github.com/augurysys/augury-node-tui/internal/nav"
 	"github.com/augurysys/augury-node-tui/internal/platform"
 	"github.com/augurysys/augury-node-tui/internal/status"
@@ -11,10 +12,11 @@ import (
 )
 
 type Model struct {
-	Status    status.RepoStatus
-	Platforms []platform.Platform
-	Selected  map[string]bool
-	Focused   int
+	Status             status.RepoStatus
+	Platforms          []platform.Platform
+	Selected           map[string]bool
+	Focused            int
+	DeveloperDownloads *developerdownloads.Index
 }
 
 func NewModel(st status.RepoStatus, platforms []platform.Platform) *Model {
@@ -22,7 +24,8 @@ func NewModel(st status.RepoStatus, platforms []platform.Platform) *Model {
 	for _, p := range platforms {
 		sel[p.ID] = false
 	}
-	return &Model{Status: st, Platforms: platforms, Selected: sel}
+	idx, _ := developerdownloads.ReadAt(st.Root)
+	return &Model{Status: st, Platforms: platforms, Selected: sel, DeveloperDownloads: idx}
 }
 
 func (m *Model) Init() tea.Cmd {
@@ -80,6 +83,9 @@ func (m *Model) View() string {
 		b.WriteString(fmt.Sprintf("  %s %s\n", p, label))
 	}
 	b.WriteString("platforms: j/k up/down space/enter toggle\n")
+	if m.DeveloperDownloads == nil {
+		b.WriteString("developer-downloads: unavailable\n")
+	}
 	for i, p := range m.Platforms {
 		sel := " "
 		if m.Selected[p.ID] {
@@ -89,7 +95,14 @@ func (m *Model) View() string {
 		if i == m.Focused {
 			cur = ">"
 		}
-		b.WriteString(fmt.Sprintf(" %s [%s] %s\n", cur, sel, p.ID))
+		line := fmt.Sprintf(" %s [%s] %s", cur, sel, p.ID)
+		if m.DeveloperDownloads != nil {
+			state := m.DeveloperDownloads.SourceState(p.ID)
+			if state != "" {
+				line += fmt.Sprintf(" (%s)", state)
+			}
+		}
+		b.WriteString(line + "\n")
 	}
 	b.WriteString("b build h hydrate c caches v validations o hints a replay q quit\n")
 	return b.String()
