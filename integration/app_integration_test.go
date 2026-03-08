@@ -8,11 +8,14 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/augurysys/augury-node-tui/internal/app"
 	"github.com/augurysys/augury-node-tui/internal/build"
 	"github.com/augurysys/augury-node-tui/internal/home"
 	"github.com/augurysys/augury-node-tui/internal/platform"
 	"github.com/augurysys/augury-node-tui/internal/status"
+	"github.com/augurysys/augury-node-tui/internal/ui"
 	"github.com/augurysys/augury-node-tui/internal/workspace"
 )
 
@@ -147,5 +150,27 @@ func TestAppIntegration_FixtureRoot(t *testing.T) {
 		if row.Status != build.RowStatusSuccess {
 			t.Errorf("summary must contain expected fixture outcomes; row %s = %q, want success", row.PlatformID, row.Status)
 		}
+	}
+}
+
+func TestAppIntegration_AppModelLoadsWithFixture(t *testing.T) {
+	root := setupFixtureRoot(t)
+	st, _ := status.Collect(root)
+	if st.Root == "" {
+		st = status.RepoStatus{Root: root, Branch: "main", SHA: "x"}
+	}
+	m := app.NewModel(st, platform.Registry(), 10*time.Millisecond)
+
+	model, cmd := m.Update(ui.TimeoutMsg{})
+	if cmd != nil {
+		model, _ = model.(*app.Model).Update(cmd())
+	}
+	m = model.(*app.Model)
+	if m.Route() != "home" {
+		t.Errorf("after splash dismiss route = %q, want home", m.Route())
+	}
+	view := m.View()
+	if view == "" || !strings.Contains(view, root) {
+		t.Errorf("home view must contain root; got %q", view)
 	}
 }
