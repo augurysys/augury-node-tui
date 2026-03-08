@@ -9,7 +9,9 @@ import (
 	"github.com/augurysys/augury-node-tui/internal/nav"
 	"github.com/augurysys/augury-node-tui/internal/platform"
 	"github.com/augurysys/augury-node-tui/internal/status"
+	"github.com/augurysys/augury-node-tui/internal/styles"
 	"github.com/augurysys/augury-node-tui/internal/visual/diagram"
+	"github.com/charmbracelet/lipgloss"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -77,57 +79,174 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) View() string {
-	var b strings.Builder
+	var sections []string
+
+	// Title
+	title := styles.Title.Render("🚀 Augury Node Builder")
+	sections = append(sections, title)
+
+	// Diagram (if wide enough)
 	if m.Width >= diagram.MinDiagramWidth {
-		b.WriteString(diagram.PlatformFlow(m.Platforms))
-		b.WriteString("\n")
+		sections = append(sections, diagram.PlatformFlow(m.Platforms))
 	}
-	b.WriteString(fmt.Sprintf("root: %s\n", m.Status.Root))
-	b.WriteString(fmt.Sprintf("branch: %s\n", m.Status.Branch))
-	b.WriteString(fmt.Sprintf("sha: %s\n", m.Status.SHA))
-	
-	nixStatus := "ready"
-	if !m.nixState.Ready {
-		nixStatus = "not ready"
-		if friendlyReason := friendlyNixReason(m.nixState.Reason); friendlyReason != "" {
-			nixStatus += " - " + friendlyReason
+
+	// Repository Status Section
+	repoSection := m.renderRepoStatus()
+	sections = append(sections, styles.Border.Render(repoSection))
+
+	// Platforms Section
+	platformsSection := m.renderPlatforms()
+	sections = append(sections, styles.Section.Render(platformsSection))
+
+	// Key Bindings
+	keyHelp := m.renderKeyHelp()
+	sections = append(sections, styles.KeyHelp.Render(keyHelp))
+
+	return lipgloss.JoinVertical(lipgloss.Left, sections...)
+}
+
+func (m *Model) renderRepoStatus() string {
+	var lines []string
+
+	// Header
+	header := styles.Header.Render("📁 Repository")
+	lines = append(lines, header)
+
+	// Root
+	lines = append(lines, fmt.Sprintf("  %s  %s",
+		styles.Dim.Render("Root:"),
+		styles.Highlight.Render(m.Status.Root)))
+
+	// Branch
+	lines = append(lines, fmt.Sprintf("  %s %s  %s %s",
+		styles.Dim.Render("Branch:"),
+		styles.Info.Render(m.Status.Branch),
+		styles.Dim.Render("SHA:"),
+		styles.Dim.Render(m.Status.SHA[:min(8, len(m.Status.SHA))])))
+
+	// Nix Status
+	nixLabel := "Nix:"
+	var nixStatus string
+	var nixStyle lipgloss.Style
+	if m.nixState.Ready {
+		nixStatus = "✓ ready"
+		nixStyle = styles.Success
+	} else {
+		nixStatus = "✗ not ready"
+		nixStyle = styles.Error
+		if reason := friendlyNixReason(m.nixState.Reason); reason != "" {
+			nixStatus += " - " + reason
 		}
 	}
-	b.WriteString(fmt.Sprintf("nix: %s\n", nixStatus))
-	
-	b.WriteString("paths:\n")
+	lines = append(lines, fmt.Sprintf("  %s  %s",
+		styles.Dim.Render(nixLabel),
+		nixStyle.Render(nixStatus)))
+
+	// Paths
+	pathsClean := 0
+	pathsDirty := 0
 	for _, p := range status.RequiredPaths {
-		dirty := m.Status.Dirty[p]
-		label := "clean"
-		if dirty {
-			label = "dirty"
+		if m.Status.Dirty[p] {
+			pathsDirty++
+		} else {
+			pathsClean++
 		}
-		b.WriteString(fmt.Sprintf("  %s %s\n", p, label))
 	}
-	b.WriteString("platforms: j/k up/down space/enter toggle\n")
+	var pathStatus string
+	if pathsDirty > 0 {
+		pathStatus = fmt.Sprintf("%s %d dirty, %d clean",
+			styles.Warning.Render("⚠"),
+			pathsDirty, pathsClean)
+	} else {
+		pathStatus = styles.Success.Render(fmt.Sprintf("✓ %d paths clean", pathsClean))
+	}
+	lines = append(lines, fmt.Sprintf("  %s  %s",
+		styles.Dim.Render("Paths:"),
+		pathStatus))
+
+	return strings.Join(lines, "\n")
+}
+
+func (m *Model) renderPlatforms() string {
+	var lines []string
+
+	// Header
+	header := styles.Header.Render("🎯 Platforms")
+	hint := styles.Dim.Render(" (j/k: navigate • space: toggle)")
+	lines = append(lines, header+hint)
+
+	// Developer downloads status
 	if m.DeveloperDownloads == nil {
-		b.WriteString("developer-downloads: unavailable\n")
+		lines = append(lines, "  "+styles.Warning.Render("⚠ developer-downloads unavailable"))
 	}
+
+	// Platform list
 	for i, p := range m.Platforms {
-		sel := " "
-		if m.Selected[p.ID] {
-			sel = "x"
-		}
-		cur := " "
-		if i == m.Focused {
-			cur = ">"
-		}
-		line := fmt.Sprintf(" %s [%s] %s", cur, sel, p.ID)
-		if m.DeveloperDownloads != nil {
-			state := m.DeveloperDownloads.SourceState(p.ID)
-			if state != "" {
-				line += fmt.Sprintf(" (%s)", state)
+		line := m.renderPlatformItem(i, p)
+		lines = append(lines, line)
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+func (m *Model) renderPlatformItem(index int, p platform.Platform) string {
+	// Selection checkbox
+	checkbox := "☐"
+	if m.Selected[p.ID] {
+		checkbox = "☑"
+	}
+
+	// Platform ID
+	idText := p.ID
+
+	// Source state indicator
+	var stateText string
+	if m.DeveloperDownloads != nil {
+		state := m.DeveloperDownloads.SourceState(p.ID)
+		if state != "" {
+			stateStyle := styles.StatusStyle(string(state))
+			switch state {
+			case "built":
+				stateText = stateStyle.Render("● built")
+			case "hydrated":
+				stateText = stateStyle.Render("● hydrated")
+			case "missing":
+				stateText = stateStyle.Render("○ missing")
+			default:
+				stateText = styles.Dim.Render("○ " + string(state))
 			}
 		}
-		b.WriteString(line + "\n")
 	}
-	b.WriteString("b build h hydrate c caches v validations o hints a replay q quit\n")
-	return b.String()
+
+	// Build the line
+	content := fmt.Sprintf("  %s %s %s", checkbox, idText, stateText)
+
+	// Apply selection styling
+	if index == m.Focused {
+		return styles.ItemSelected.Render("▶ " + content)
+	}
+	return styles.Item.Render("  " + content)
+}
+
+func (m *Model) renderKeyHelp() string {
+	keys := []string{
+		styles.KeyBinding("b", "build"),
+		styles.KeyBinding("h", "hydrate"),
+		styles.KeyBinding("c", "caches"),
+		styles.KeyBinding("v", "validations"),
+		styles.KeyBinding("o", "hints"),
+		styles.KeyBinding("a", "replay"),
+		styles.KeyBinding("r", "refresh"),
+		styles.KeyBinding("q", "quit"),
+	}
+	return strings.Join(keys, "  •  ")
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func (m *Model) TogglePlatform(id string) {
