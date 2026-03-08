@@ -1,8 +1,10 @@
 package setup
 
 import (
+	"os"
 	"os/exec"
 	"os/user"
+	"path/filepath"
 	"strings"
 )
 
@@ -106,4 +108,24 @@ func CheckDaemonSocket() HealthCheckResult {
 		Available: true,
 		Message:   "Nix daemon socket is accessible",
 	}
+}
+
+func AutoFixNixConfig() error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+	dir := filepath.Join(home, ".config", "nix")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+	path := filepath.Join(dir, "nix.conf")
+
+	data, _ := os.ReadFile(path)
+	content := string(data)
+	if !strings.Contains(content, "experimental-features") {
+		content += "\nexperimental-features = nix-command flakes\n"
+		return os.WriteFile(path, []byte(content), 0644)
+	}
+	return nil
 }
