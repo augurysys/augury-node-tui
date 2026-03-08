@@ -260,7 +260,7 @@ func TestDiagram_HomeViewExcludesDiagramWhenTooNarrow(t *testing.T) {
 	}
 }
 
-func TestDeveloperDownloads_AliasMoxaLowRpmResolvesFromIndex(t *testing.T) {
+func TestDeveloperDownloads_MoxaUc3100UlrpmResolvesFromIndex(t *testing.T) {
 	dir := t.TempDir()
 	dd := filepath.Join(dir, "developer-downloads")
 	if err := os.MkdirAll(dd, 0755); err != nil {
@@ -273,11 +273,11 @@ func TestDeveloperDownloads_AliasMoxaLowRpmResolvesFromIndex(t *testing.T) {
 	st := status.RepoStatus{Root: dir, Branch: "main", SHA: "x"}
 	m := NewModel(st, platform.Registry())
 	view := m.View()
-	if !strings.Contains(view, "moxa-low-rpm") {
-		t.Skip("platform registry may not include moxa-low-rpm")
+	if !strings.Contains(view, "moxa-uc3100-ulrpm") {
+		t.Skip("platform registry may not include moxa-uc3100-ulrpm")
 	}
 	if !strings.Contains(view, "built") {
-		t.Errorf("View should show built for moxa-low-rpm via alias; got %q", view)
+		t.Errorf("View should show built for moxa-uc3100-ulrpm; got %q", view)
 	}
 }
 

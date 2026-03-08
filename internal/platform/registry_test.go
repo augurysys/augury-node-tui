@@ -12,8 +12,8 @@ func TestRegistry_ExactMappings(t *testing.T) {
 		outputRelPath string
 	}{
 		{"node2", "scripts/devices/node2-build.sh", "pkg/cl-sbc-iot-imx7"},
-		{"moxa-uc3100", "scripts/devices/moxa-uc3100-build.sh", "pkg/moxa-uc31xx"},
-		{"moxa-low-rpm", "scripts/devices/moxa-low-rpm-build.sh", "pkg/moxa-low-rpm"},
+		{"moxa-uc3100", "scripts/devices/moxa-uc3100-build.sh", "pkg/moxa-uc3100"},
+		{"moxa-uc3100-ulrpm", "scripts/devices/moxa-uc3100-ulrpm-build.sh", "pkg/moxa-uc3100-ulrpm"},
 		{"cassia-x2000", "scripts/devices/cassia-x2000-build.sh", "pkg/cassia-x2000"},
 		{"mp255-ulrpm", "scripts/devices/mp255-ulrpm.sh", "pkg/mp255-ulrpm"},
 	}
@@ -38,8 +38,8 @@ func TestByID_Found(t *testing.T) {
 		outputRelPath string
 	}{
 		{"node2", "scripts/devices/node2-build.sh", "pkg/cl-sbc-iot-imx7"},
-		{"moxa-uc3100", "scripts/devices/moxa-uc3100-build.sh", "pkg/moxa-uc31xx"},
-		{"moxa-low-rpm", "scripts/devices/moxa-low-rpm-build.sh", "pkg/moxa-low-rpm"},
+		{"moxa-uc3100", "scripts/devices/moxa-uc3100-build.sh", "pkg/moxa-uc3100"},
+		{"moxa-uc3100-ulrpm", "scripts/devices/moxa-uc3100-ulrpm-build.sh", "pkg/moxa-uc3100-ulrpm"},
 		{"cassia-x2000", "scripts/devices/cassia-x2000-build.sh", "pkg/cassia-x2000"},
 		{"mp255-ulrpm", "scripts/devices/mp255-ulrpm.sh", "pkg/mp255-ulrpm"},
 	}

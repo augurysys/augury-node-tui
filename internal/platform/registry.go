@@ -6,10 +6,12 @@ type Platform struct {
 	OutputRelPath string
 }
 
+// Canonical platform IDs, entrypoints, and artifact paths aligned with
+// augury-node scripts/lib/artifact-platform-map.sh
 var platforms = []Platform{
 	{"node2", "scripts/devices/node2-build.sh", "pkg/cl-sbc-iot-imx7"},
-	{"moxa-uc3100", "scripts/devices/moxa-uc3100-build.sh", "pkg/moxa-uc31xx"},
-	{"moxa-low-rpm", "scripts/devices/moxa-low-rpm-build.sh", "pkg/moxa-low-rpm"},
+	{"moxa-uc3100", "scripts/devices/moxa-uc3100-build.sh", "pkg/moxa-uc3100"},
+	{"moxa-uc3100-ulrpm", "scripts/devices/moxa-uc3100-ulrpm-build.sh", "pkg/moxa-uc3100-ulrpm"},
 	{"cassia-x2000", "scripts/devices/cassia-x2000-build.sh", "pkg/cassia-x2000"},
 	{"mp255-ulrpm", "scripts/devices/mp255-ulrpm.sh", "pkg/mp255-ulrpm"},
 }

@@ -9,10 +9,6 @@ import (
 
 const indexFilename = "developer-downloads/index.json"
 
-var platformIDToIndexKey = map[string]string{
-	"moxa-low-rpm": "moxa-uc3100-ulrpm",
-}
-
 type SourceState string
 
 const (
@@ -75,11 +71,6 @@ func (idx *Index) SourceState(platformID string) SourceState {
 	}
 	if s, ok := idx.sources[platformID]; ok {
 		return s
-	}
-	if alias, ok := platformIDToIndexKey[platformID]; ok {
-		if s, ok := idx.sources[alias]; ok {
-			return s
-		}
 	}
 	return SourceMissing
 }

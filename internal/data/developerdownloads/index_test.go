@@ -73,7 +73,7 @@ func TestReadAt_ReturnsUnavailableWhenIndexAbsent(t *testing.T) {
 	}
 }
 
-func TestParseIndex_AliasMappingMoxaLowRpmResolvesFromMoxaUc3100Ulrpm(t *testing.T) {
+func TestParseIndex_MoxaUc3100UlrpmResolvesDirectly(t *testing.T) {
 	dir := t.TempDir()
 	dd := filepath.Join(dir, "developer-downloads")
 	if err := os.MkdirAll(dd, 0755); err != nil {
@@ -90,8 +90,8 @@ func TestParseIndex_AliasMappingMoxaLowRpmResolvesFromMoxaUc3100Ulrpm(t *testing
 	if idx == nil {
 		t.Fatal("index must not be nil")
 	}
-	if got := idx.SourceState("moxa-low-rpm"); got != SourceHydrated {
-		t.Errorf("moxa-low-rpm should resolve from moxa-uc3100-ulrpm; want hydrated, got %q", got)
+	if got := idx.SourceState("moxa-uc3100-ulrpm"); got != SourceHydrated {
+		t.Errorf("moxa-uc3100-ulrpm: want hydrated, got %q", got)
 	}
 }
 
