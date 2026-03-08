@@ -209,6 +209,46 @@ func TestApp_HomeKeyA_ReplaysSplash(t *testing.T) {
 	}
 }
 
+func TestApp_WindowSizePropagatesToDiagramRoutes(t *testing.T) {
+	m := NewModel(stubStatus(), platform.Registry(), 2*time.Second)
+	m.route = "splash"
+	model, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	m = model.(*Model)
+
+	// Navigate to home without any further WindowSizeMsg
+	m.route = "home"
+	view := m.View()
+	if view == "" {
+		t.Fatal("view must not be empty")
+	}
+	if !containsRune(view, '\u250c') {
+		t.Errorf("home view must include diagram (box-drawing) after WindowSizeMsg propagated; got %q", view)
+	}
+
+	// Navigate to caches
+	m.route = "caches"
+	view = m.View()
+	if !containsRune(view, '\u250c') {
+		t.Errorf("caches view must include diagram after WindowSizeMsg propagated; got %q", view)
+	}
+
+	// Navigate to validations
+	m.route = "validations"
+	view = m.View()
+	if !containsRune(view, '\u250c') {
+		t.Errorf("validations view must include diagram after WindowSizeMsg propagated; got %q", view)
+	}
+}
+
+func containsRune(s string, r rune) bool {
+	for _, c := range s {
+		if c == r {
+			return true
+		}
+	}
+	return false
+}
+
 func TestApp_HomeKeyQ_Quits(t *testing.T) {
 	m := NewModel(stubStatus(), platform.Registry(), 2*time.Second)
 	m.route = "home"

@@ -38,6 +38,17 @@ func TestCacheTopology_Deterministic(t *testing.T) {
 	}
 }
 
+func TestCacheTopology_PlatformTab_Deterministic(t *testing.T) {
+	a := CacheTopology(1)
+	b := CacheTopology(1)
+	if a != b {
+		t.Errorf("CacheTopology(activeTab==1) must be deterministic; two calls differ")
+	}
+	if !strings.Contains(a, "platform") && !strings.Contains(a, "Platform") {
+		t.Errorf("CacheTopology(1) must contain platform; got %q", a)
+	}
+}
+
 func TestCacheTopology_ContainsTopologyElements(t *testing.T) {
 	out := CacheTopology(1)
 	if !strings.Contains(out, "build-unit") && !strings.Contains(out, "Build-unit") {

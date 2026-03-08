@@ -76,6 +76,17 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case tea.QuitMsg:
 		return m, tea.Quit
+	case tea.WindowSizeMsg:
+		// Propagate to diagram-enabled routes so diagrams render after route switch
+		if hm, _ := m.home.Update(msg); hm != nil {
+			m.home = hm.(*home.Model)
+		}
+		if cm, _ := m.caches.Update(msg); cm != nil {
+			m.caches = cm.(*caches.Model)
+		}
+		if vm, _ := m.validations.Update(msg); vm != nil {
+			m.validations = vm.(*validations.Model)
+		}
 	}
 
 	switch m.route {
