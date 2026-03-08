@@ -10,7 +10,7 @@ var errorPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)\berror:\s`),
 	regexp.MustCompile(`(?i)\bfatal:\s`),
 	regexp.MustCompile(`\bFAIL\b`),
-	regexp.MustCompile(`(?i)\bfailed\b`),
+	regexp.MustCompile(`(?i)\b(?:build|compilation|command|test|execution)\s+failed\b`),
 	regexp.MustCompile(`(?i)\berror\b.*\bfailed\b`),
 }
 

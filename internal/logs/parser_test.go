@@ -48,6 +48,18 @@ func TestParser_FirstErrorMarkerDetection(t *testing.T) {
 			wantLine: -1,
 			wantOK:   false,
 		},
+		{
+			name:     "success summary with failed count does not trigger",
+			log:      "running tests\n0 failed, 5 passed\nok",
+			wantLine: -1,
+			wantOK:   false,
+		},
+		{
+			name:     "build failed still triggers",
+			log:      "config ok\nBuild failed\n",
+			wantLine: 1,
+			wantOK:   true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

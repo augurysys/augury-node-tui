@@ -319,6 +319,30 @@ func TestLog_ErrorTabShowsFirstErrorContext(t *testing.T) {
 	}
 }
 
+func TestLog_ClampedOffsetPersistedInLogScrollOffset(t *testing.T) {
+	tmp := t.TempDir()
+	logDir := filepath.Join(tmp, "tmp", "augury-node-tui")
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	platforms := platform.Registry()
+	if len(platforms) == 0 {
+		t.Fatal("need at least one platform")
+	}
+	pid := platforms[0].ID
+	if err := os.WriteFile(filepath.Join(logDir, pid+".log"), []byte("L1\nL2\nL3"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	m := NewModel(status.RepoStatus{Root: tmp, Branch: "main", SHA: "x"}, platforms, map[string]bool{pid: true})
+	m.Summary = &Summary{Rows: []SummaryRow{{PlatformID: pid, Status: RowStatusFailure}}}
+	m.Focused = 0
+	m.LogScrollOffset = map[string]int{pid: 99}
+	_ = m.View()
+	if m.LogScrollOffset[pid] != 0 {
+		t.Errorf("out-of-range offset must be clamped and persisted; got %d, want 0", m.LogScrollOffset[pid])
+	}
+}
+
 func TestLog_ScrollClampedToValidRange(t *testing.T) {
 	tmp := t.TempDir()
 	logDir := filepath.Join(tmp, "tmp", "augury-node-tui")

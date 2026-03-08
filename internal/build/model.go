@@ -248,6 +248,10 @@ func (m *Model) viewLogResults() string {
 	offset := m.scrollOffsetForPlatform(pid)
 	if offset >= len(lines) {
 		offset = 0
+		if m.LogScrollOffset == nil {
+			m.LogScrollOffset = make(map[string]int)
+		}
+		m.LogScrollOffset[pid] = offset
 	}
 	visible := lines[offset:]
 	b.WriteString("--- log ---\n")
