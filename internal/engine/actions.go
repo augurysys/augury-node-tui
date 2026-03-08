@@ -47,9 +47,11 @@ const (
 )
 
 // ActionRequest describes a single engine action to execute.
+// PlatformID is required for platform-specific actions (e.g. build-unit:build).
 type ActionRequest struct {
-	Kind   ActionKind
-	Target ActionTarget
+	Kind       ActionKind
+	Target     ActionTarget
+	PlatformID string
 }
 
 // ActionMetadata holds display and metadata for an action.
