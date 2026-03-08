@@ -50,9 +50,7 @@ func TestNix_ReadyMode_ActionsExecute(t *testing.T) {
 	if err := os.WriteFile(fakeNix, []byte("#!/bin/sh\n[ \"$1\" = develop ] && exit 0\nexit 1\n"), 0755); err != nil {
 		t.Fatal(err)
 	}
-	origPath := os.Getenv("PATH")
-	t.Setenv("PATH", tmp+string(filepath.ListSeparator)+origPath)
-	defer t.Setenv("PATH", origPath)
+	t.Setenv("PATH", tmp+string(filepath.ListSeparator)+os.Getenv("PATH"))
 
 	st, _ := status.Collect(root)
 	if st.Root == "" {
@@ -75,6 +73,17 @@ func TestNix_ReadyMode_ActionsExecute(t *testing.T) {
 
 	if cmd == nil {
 		t.Error("action B when nix ready: expected cmd, got nil")
+		return
+	}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		cmd()
+	}()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("action cmd hung")
 	}
 	view := m.View()
 	if strings.Contains(view, "nix develop failed") || strings.Contains(view, "flake not found") {

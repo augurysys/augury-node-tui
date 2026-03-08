@@ -31,11 +31,11 @@ func TestLogSlicing_FirstErrorExtractionFromFixtureLog(t *testing.T) {
 	if err := os.MkdirAll(logDir, 0755); err != nil {
 		t.Fatal(err)
 	}
-	platforms := platform.Registry()
-	if len(platforms) == 0 {
-		t.Fatal("need at least one platform")
+	pid := "node2"
+	if _, ok := platform.ByID(pid); !ok {
+		t.Fatalf("platform %q not in registry", pid)
 	}
-	pid := platforms[0].ID
+	platforms := platform.Registry()
 	if err := os.WriteFile(filepath.Join(logDir, pid+".log"), []byte(deterministicLogWithError), 0644); err != nil {
 		t.Fatal(err)
 	}
