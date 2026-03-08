@@ -37,6 +37,9 @@ func TestActionContracts(t *testing.T) {
 			if meta.DisplayName == "" {
 				t.Errorf("Metadata().DisplayName must be non-empty")
 			}
+			if meta.DisplayName == c.id {
+				t.Errorf("Metadata().DisplayName must not fall back to raw ID %q for predefined actions", c.id)
+			}
 		})
 	}
 }
