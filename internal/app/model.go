@@ -59,8 +59,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		s := msg.String()
 		if m.route != "splash" && m.route != "home" && (s == "b" || s == "esc") {
+			if m.route != "caches" || !m.caches.ConfirmShown() {
 			m.route = "home"
 			return m, nil
+		}
 		}
 	case nav.NavigateMsg:
 		m.route = msg.Route

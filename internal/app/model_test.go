@@ -1,6 +1,8 @@
 package app
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -135,6 +137,41 @@ func TestApp_ReturnFromCaches_GoesToHome(t *testing.T) {
 	m = model.(*Model)
 	if m.Route() != "home" {
 		t.Errorf("b from caches should go to home; got %q", m.Route())
+	}
+}
+
+func TestApp_CachesConfirmModal_EscCancelsNotRouteHome(t *testing.T) {
+	root := t.TempDir()
+	scriptsDev := root + "/scripts/dev"
+	if err := os.MkdirAll(scriptsDev, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(scriptsDev+"/delete-build-unit-cache.sh", []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	tmp := t.TempDir()
+	if err := os.WriteFile(tmp+"/nix", []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", tmp+string(filepath.ListSeparator)+os.Getenv("PATH"))
+
+	st := status.RepoStatus{Root: root, Branch: "main", SHA: "x"}
+	m := NewModel(st, platform.Registry(), 2*time.Second)
+	m.route = "caches"
+
+	model, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("D")})
+	m = model.(*Model)
+	if !m.caches.ConfirmShown() {
+		t.Fatal("D must show confirm modal")
+	}
+
+	model, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m = model.(*Model)
+	if m.Route() != "caches" {
+		t.Errorf("esc with confirm shown must stay on caches (cancel modal); got route %q", m.Route())
+	}
+	if m.caches.ConfirmShown() {
+		t.Error("esc must dismiss confirm modal")
 	}
 }
 

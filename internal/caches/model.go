@@ -178,6 +178,9 @@ func (m *Model) View() string {
 		return b.String()
 	}
 	b.WriteString("Build-unit: B=build R=pull D=delete | Platform: P=pull U=push X=clean\n")
+	if s := m.rowStatus["global"]; s != "" {
+		b.WriteString(fmt.Sprintf("Global: [%s]\n", s))
+	}
 	for _, p := range m.Platforms {
 		line := fmt.Sprintf("  %s -> %s", p.ID, p.OutputRelPath)
 		if s := m.rowStatus[p.ID]; s != "" {

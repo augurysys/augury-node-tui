@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/augurysys/augury-node-tui/internal/engine"
 	"github.com/augurysys/augury-node-tui/internal/platform"
 	"github.com/augurysys/augury-node-tui/internal/status"
 	tea "github.com/charmbracelet/bubbletea"
@@ -107,6 +108,22 @@ func TestCachesModel_DestructiveActionConfirmationRequired(t *testing.T) {
 	c := cm.(*Model)
 	if c.ConfirmShown() {
 		t.Error("pressing n must dismiss confirm modal without executing")
+	}
+}
+
+func TestCachesModel_GlobalActionStatusRenderedInView(t *testing.T) {
+	st := status.RepoStatus{Root: "/repo", Branch: "main", SHA: "x"}
+	m := NewModel(st, platform.Registry())
+	m.Update(jobResultMsg{
+		Job:     engine.Job{State: engine.JobStateSuccess},
+		Request: engine.ActionRequest{Kind: engine.KindBuildUnit, Target: engine.TargetPull},
+	})
+	view := m.View()
+	if !strings.Contains(view, "success") {
+		t.Error("view must render global action status when set")
+	}
+	if !strings.Contains(view, "Global") {
+		t.Error("view must include Global label for platform-agnostic action status")
 	}
 }
 
