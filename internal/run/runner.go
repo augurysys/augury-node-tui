@@ -34,6 +34,18 @@ type Result struct {
 	ExitCode int
 }
 
+func streamTo(r io.Reader, buf *strings.Builder, log io.Writer) error {
+	mw := io.MultiWriter(buf, log)
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
+		line := scanner.Text() + "\n"
+		if _, err := mw.Write([]byte(line)); err != nil {
+			return err
+		}
+	}
+	return scanner.Err()
+}
+
 func Execute(ctx context.Context, spec RunSpec) Result {
 	logDir := filepath.Join(spec.Root, "tmp", "augury-node-tui")
 	if err := os.MkdirAll(logDir, 0755); err != nil {
@@ -72,14 +84,17 @@ func Execute(ctx context.Context, spec RunSpec) Result {
 	}
 
 	var stdoutBuf, stderrBuf strings.Builder
+	var teeErr error
+	var teeMu sync.Mutex
 	var wg sync.WaitGroup
 	tee := func(r io.Reader, buf *strings.Builder, log io.Writer) {
 		defer wg.Done()
-		mw := io.MultiWriter(buf, log)
-		scanner := bufio.NewScanner(r)
-		for scanner.Scan() {
-			line := scanner.Text() + "\n"
-			mw.Write([]byte(line))
+		if err := streamTo(r, buf, log); err != nil {
+			teeMu.Lock()
+			if teeErr == nil {
+				teeErr = err
+			}
+			teeMu.Unlock()
 		}
 	}
 	wg.Add(2)
@@ -94,6 +109,15 @@ func Execute(ctx context.Context, spec RunSpec) Result {
 			Status: "cancelled",
 			Stdout: stdoutBuf.String(),
 			Stderr: stderrBuf.String(),
+		}
+	}
+
+	if teeErr != nil {
+		return Result{
+			Status:   "error",
+			Stdout:   stdoutBuf.String(),
+			Stderr:   stderrBuf.String() + "\n" + teeErr.Error(),
+			ExitCode: -1,
 		}
 	}
 

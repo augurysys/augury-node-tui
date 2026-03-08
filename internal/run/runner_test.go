@@ -2,11 +2,37 @@ package run
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+var errReadFailed = errors.New("read failed")
+var errWriteFailed = errors.New("write failed")
+
+type errReader struct {
+	data []byte
+	err  error
+}
+
+func (r *errReader) Read(p []byte) (n int, err error) {
+	if len(r.data) > 0 {
+		n = copy(p, r.data)
+		r.data = r.data[n:]
+		return n, nil
+	}
+	return 0, r.err
+}
+
+type errWriter struct {
+	err error
+}
+
+func (w *errWriter) Write(p []byte) (n int, err error) {
+	return 0, w.err
+}
 
 func TestModeConstants(t *testing.T) {
 	if ModeSmart != "Smart" {
@@ -207,5 +233,33 @@ func TestExecute_StreamsOutputToMemoryAndLog(t *testing.T) {
 	}
 	if !strings.Contains(string(data), "out") || !strings.Contains(string(data), "err") {
 		t.Errorf("log file does not contain both out and err: %q", string(data))
+	}
+}
+
+func TestStreamTo_PropagatesScannerErr(t *testing.T) {
+	r := &errReader{data: []byte("line\n"), err: errReadFailed}
+	var buf strings.Builder
+	log := &strings.Builder{}
+
+	err := streamTo(r, &buf, log)
+	if err == nil {
+		t.Error("streamTo: want error from scanner.Err(), got nil")
+	}
+	if !errors.Is(err, errReadFailed) {
+		t.Errorf("streamTo: err = %v, want errReadFailed", err)
+	}
+}
+
+func TestStreamTo_PropagatesWriteError(t *testing.T) {
+	r := &errReader{data: []byte("line\n"), err: nil}
+	var buf strings.Builder
+	log := &errWriter{err: errWriteFailed}
+
+	err := streamTo(r, &buf, log)
+	if err == nil {
+		t.Error("streamTo: want error from mw.Write, got nil")
+	}
+	if !errors.Is(err, errWriteFailed) {
+		t.Errorf("streamTo: err = %v, want errWriteFailed", err)
 	}
 }
