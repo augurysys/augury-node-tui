@@ -3,9 +3,11 @@ package app
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/augurysys/augury-node-tui/internal/engine"
 	"github.com/augurysys/augury-node-tui/internal/platform"
 	"github.com/augurysys/augury-node-tui/internal/status"
 	"github.com/augurysys/augury-node-tui/internal/ui"
@@ -259,5 +261,86 @@ func TestApp_HomeKeyQ_Quits(t *testing.T) {
 	msg := cmd()
 	if _, ok := msg.(tea.QuitMsg); !ok {
 		t.Errorf("cmd must produce QuitMsg; got %T", msg)
+	}
+}
+
+func TestNixGate_ActionKeypressesBlockedWhenNixNotReady(t *testing.T) {
+	root := t.TempDir()
+	scriptsDevices := root + "/scripts/devices"
+	if err := os.MkdirAll(scriptsDevices, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(scriptsDevices+"/node2-build.sh", []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	nixNotReady := engine.NixState{Ready: false, Reason: "nix not available"}
+	st := status.RepoStatus{Root: root, Branch: "main", SHA: "x"}
+	m := NewModelWithNix(st, platform.Registry(), 2*time.Second, nixNotReady)
+	m.route = "caches"
+
+	model, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("B")})
+	m = model.(*Model)
+
+	if m.caches.DisabledReason() != nixNotReady.Reason {
+		t.Errorf("action B when nix not ready: DisabledReason = %q, want %q", m.caches.DisabledReason(), nixNotReady.Reason)
+	}
+}
+
+func TestNixGate_ActionKeypressesAllowedWhenNixReady(t *testing.T) {
+	root := t.TempDir()
+	scriptsDevices := root + "/scripts/devices"
+	if err := os.MkdirAll(scriptsDevices, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(scriptsDevices+"/node2-build.sh", []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	tmp := t.TempDir()
+	if err := os.WriteFile(tmp+"/nix", []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", tmp+string(filepath.ListSeparator)+os.Getenv("PATH"))
+
+	nixReady := engine.NixState{Ready: true, Reason: ""}
+	st := status.RepoStatus{Root: root, Branch: "main", SHA: "x"}
+	m := NewModelWithNix(st, platform.Registry(), 2*time.Second, nixReady)
+	m.route = "caches"
+
+	model, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("B")})
+	m = model.(*Model)
+
+	if m.caches.DisabledReason() != "" {
+		t.Errorf("action B when nix ready: DisabledReason = %q, want empty", m.caches.DisabledReason())
+	}
+	if cmd == nil {
+		t.Error("action B when nix ready: expected cmd, got nil")
+	}
+	_ = cmd
+}
+
+func TestNixGate_BlockedReasonSurfacedInUIState(t *testing.T) {
+	root := t.TempDir()
+	scriptsDevices := root + "/scripts/devices"
+	if err := os.MkdirAll(scriptsDevices, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(scriptsDevices+"/node2-build.sh", []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	blockedReason := "nix develop failed: flake not found"
+	nixNotReady := engine.NixState{Ready: false, Reason: blockedReason}
+	st := status.RepoStatus{Root: root, Branch: "main", SHA: "x"}
+	m := NewModelWithNix(st, platform.Registry(), 2*time.Second, nixNotReady)
+	m.route = "caches"
+
+	model, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("B")})
+	m = model.(*Model)
+	view := m.View()
+
+	if m.caches.DisabledReason() != blockedReason {
+		t.Errorf("DisabledReason = %q, want %q", m.caches.DisabledReason(), blockedReason)
+	}
+	if !strings.Contains(view, blockedReason) {
+		t.Errorf("view must contain blocked reason %q; got %q", blockedReason, view)
 	}
 }

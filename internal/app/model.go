@@ -5,6 +5,7 @@ import (
 
 	"github.com/augurysys/augury-node-tui/internal/build"
 	"github.com/augurysys/augury-node-tui/internal/caches"
+	"github.com/augurysys/augury-node-tui/internal/engine"
 	"github.com/augurysys/augury-node-tui/internal/home"
 	"github.com/augurysys/augury-node-tui/internal/hints"
 	"github.com/augurysys/augury-node-tui/internal/hydration"
@@ -18,6 +19,7 @@ import (
 
 type Model struct {
 	route       string
+	nixState    engine.NixState
 	splash      *ui.SplashModel
 	home        *home.Model
 	build       *build.Model
@@ -27,15 +29,19 @@ type Model struct {
 	hints       *hints.Model
 }
 
-func NewModel(st status.RepoStatus, platforms []platform.Platform, splashTimeout time.Duration) *Model {
+func newModel(st status.RepoStatus, platforms []platform.Platform, splashTimeout time.Duration, nix engine.NixState) *Model {
 	hm := home.NewModel(st, platforms)
 	bm := build.NewModel(st, platforms, hm.Selected)
 	hyd := hydration.NewModel(st, platforms, hm.Selected)
 	c := caches.NewModel(st, platforms)
 	v := validations.NewModel(st)
 	h := hints.NewModel(st, platforms)
+	c.SetNixState(nix)
+	hyd.SetNixState(nix)
+	v.SetNixState(nix)
 	return &Model{
 		route:       "splash",
+		nixState:    nix,
 		splash:      ui.NewSplashModel(splashTimeout),
 		home:        hm,
 		build:       bm,
@@ -44,6 +50,14 @@ func NewModel(st status.RepoStatus, platforms []platform.Platform, splashTimeout
 		validations: v,
 		hints:       h,
 	}
+}
+
+func NewModel(st status.RepoStatus, platforms []platform.Platform, splashTimeout time.Duration) *Model {
+	return newModel(st, platforms, splashTimeout, engine.ProbeNix(st.Root))
+}
+
+func NewModelWithNix(st status.RepoStatus, platforms []platform.Platform, splashTimeout time.Duration, nix engine.NixState) *Model {
+	return newModel(st, platforms, splashTimeout, nix)
 }
 
 func (m *Model) Route() string {
@@ -60,9 +74,16 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		s := msg.String()
 		if m.route != "splash" && m.route != "home" && (s == "b" || s == "esc") {
 			if m.route != "caches" || !m.caches.ConfirmShown() {
-			m.route = "home"
-			return m, nil
+				m.route = "home"
+				return m, nil
+			}
 		}
+		if s == "r" && (m.route == "caches" || m.route == "hydrate" || m.route == "validations") {
+			m.nixState = engine.ProbeNix(m.caches.Status.Root)
+			m.caches.SetNixState(m.nixState)
+			m.hydrate.SetNixState(m.nixState)
+			m.validations.SetNixState(m.nixState)
+			return m, nil
 		}
 	case nav.NavigateMsg:
 		m.route = msg.Route

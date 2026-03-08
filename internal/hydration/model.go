@@ -25,6 +25,7 @@ type Model struct {
 	Status    status.RepoStatus
 	Platforms []platform.Platform
 	Selected  map[string]bool
+	nixState  engine.NixState
 	rowStatus map[string]string
 }
 
@@ -33,8 +34,13 @@ func NewModel(st status.RepoStatus, platforms []platform.Platform, selected map[
 		Status:    st,
 		Platforms: platforms,
 		Selected:  selected,
+		nixState:  engine.ProbeNix(st.Root),
 		rowStatus: make(map[string]string),
 	}
+}
+
+func (m *Model) SetNixState(nix engine.NixState) {
+	m.nixState = nix
 }
 
 func (m *Model) Init() tea.Cmd {
@@ -113,8 +119,7 @@ func (m *Model) dispatchHydration() tea.Cmd {
 		}
 		return nil
 	}
-	nix := engine.ProbeNix(m.Status.Root)
-	if blocked, _ := engine.IsActionBlockedByNix(engine.ActionRequest{Kind: engine.KindHydration, Target: engine.TargetRun}, nix); blocked {
+	if blocked, _ := engine.IsActionBlockedByNix(engine.ActionRequest{Kind: engine.KindHydration, Target: engine.TargetRun}, m.nixState); blocked {
 		for _, id := range ids {
 			m.rowStatus[id] = "blocked"
 		}

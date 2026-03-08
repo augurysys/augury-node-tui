@@ -31,6 +31,7 @@ func main() {
 		}
 		st = status.RepoStatus{Root: root, Branch: "?", SHA: "?", Dirty: dirty}
 	}
+	// NewModel probes nix at init; app enforces mandatory nix gating for executable actions
 	m := app.NewModel(st, platform.Registry(), 2*time.Second)
 	p := tea.NewProgram(m)
 	if _, err := p.Run(); err != nil {

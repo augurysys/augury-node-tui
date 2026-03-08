@@ -21,6 +21,7 @@ const (
 type Model struct {
 	Status              status.RepoStatus
 	Platforms           []platform.Platform
+	nixState            engine.NixState
 	activeTab           int
 	selectedIndex       int
 	disabledReason      string
@@ -34,6 +35,7 @@ func NewModel(st status.RepoStatus, platforms []platform.Platform) *Model {
 	return &Model{
 		Status:        st,
 		Platforms:     platforms,
+		nixState:      engine.ProbeNix(st.Root),
 		activeTab:     TabBuildUnit,
 		selectedIndex: 0,
 		rowStatus:     make(map[string]string),
@@ -42,6 +44,10 @@ func NewModel(st status.RepoStatus, platforms []platform.Platform) *Model {
 
 func (m *Model) Init() tea.Cmd {
 	return nil
+}
+
+func (m *Model) SetNixState(nix engine.NixState) {
+	m.nixState = nix
 }
 
 func (m *Model) DisabledReason() string {
@@ -106,8 +112,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.disabledReason = cap.Reason
 			return m, nil
 		}
-		nix := engine.ProbeNix(m.Status.Root)
-		if blocked, reason := engine.IsActionBlockedByNix(req, nix); blocked {
+		if blocked, reason := engine.IsActionBlockedByNix(req, m.nixState); blocked {
 			m.disabledReason = reason
 			return m, nil
 		}

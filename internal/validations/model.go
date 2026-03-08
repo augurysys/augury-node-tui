@@ -46,6 +46,7 @@ type jobResultMsg struct {
 
 type Model struct {
 	Status       status.RepoStatus
+	nixState     engine.NixState
 	presetStatus map[string]string
 	Width        int
 }
@@ -53,8 +54,13 @@ type Model struct {
 func NewModel(st status.RepoStatus) *Model {
 	return &Model{
 		Status:       st,
+		nixState:     engine.ProbeNix(st.Root),
 		presetStatus: make(map[string]string),
 	}
+}
+
+func (m *Model) SetNixState(nix engine.NixState) {
+	m.nixState = nix
 }
 
 func (m *Model) Init() tea.Cmd {
@@ -92,8 +98,7 @@ func (m *Model) dispatchPreset(preset string) tea.Cmd {
 		}
 		return nil
 	}
-	nix := engine.ProbeNix(m.Status.Root)
-	if blocked, reason := engine.IsActionBlockedByNix(req, nix); blocked {
+	if blocked, reason := engine.IsActionBlockedByNix(req, m.nixState); blocked {
 		m.presetStatus[preset] = "blocked"
 		if reason != "" {
 			m.presetStatus[preset] += ": " + reason
