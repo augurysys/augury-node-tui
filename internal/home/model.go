@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/augurysys/augury-node-tui/internal/data/developerdownloads"
+	"github.com/augurysys/augury-node-tui/internal/engine"
 	"github.com/augurysys/augury-node-tui/internal/nav"
 	"github.com/augurysys/augury-node-tui/internal/platform"
 	"github.com/augurysys/augury-node-tui/internal/status"
@@ -20,6 +21,7 @@ type Model struct {
 	DeveloperDownloads     *developerdownloads.Index
 	DeveloperDownloadsErr  error
 	Width                  int
+	nixState               engine.NixState
 }
 
 func NewModel(st status.RepoStatus, platforms []platform.Platform) *Model {
@@ -83,6 +85,16 @@ func (m *Model) View() string {
 	b.WriteString(fmt.Sprintf("root: %s\n", m.Status.Root))
 	b.WriteString(fmt.Sprintf("branch: %s\n", m.Status.Branch))
 	b.WriteString(fmt.Sprintf("sha: %s\n", m.Status.SHA))
+	
+	nixStatus := "ready"
+	if !m.nixState.Ready {
+		nixStatus = "not ready"
+		if friendlyReason := friendlyNixReason(m.nixState.Reason); friendlyReason != "" {
+			nixStatus += " - " + friendlyReason
+		}
+	}
+	b.WriteString(fmt.Sprintf("nix: %s\n", nixStatus))
+	
 	b.WriteString("paths:\n")
 	for _, p := range status.RequiredPaths {
 		dirty := m.Status.Dirty[p]
@@ -126,4 +138,28 @@ func (m *Model) TogglePlatform(id string) {
 
 func (m *Model) IsPlatformSelected(id string) bool {
 	return m.Selected[id]
+}
+
+func (m *Model) SetNixState(nix engine.NixState) {
+	m.nixState = nix
+}
+
+func friendlyNixReason(reason string) string {
+	if reason == "" {
+		return ""
+	}
+	lower := strings.ToLower(reason)
+	if strings.Contains(lower, "experimental") && strings.Contains(lower, "nix-command") {
+		return "enable nix experimental features (see docs/configuration.md)"
+	}
+	if strings.Contains(lower, "timed out") || strings.Contains(lower, "timeout") {
+		return "nix probe timed out"
+	}
+	if strings.Contains(lower, "not found") || strings.Contains(lower, "command not found") {
+		return "nix command not found in PATH"
+	}
+	if len(reason) > 80 {
+		return reason[:77] + "..."
+	}
+	return reason
 }

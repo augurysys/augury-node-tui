@@ -31,6 +31,7 @@ type Model struct {
 
 func newModel(st status.RepoStatus, platforms []platform.Platform, splashTimeout time.Duration, nix engine.NixState) *Model {
 	hm := home.NewModel(st, platforms)
+	hm.SetNixState(nix)
 	bm := build.NewModel(st, platforms, hm.Selected)
 	hyd := hydration.NewModel(st, platforms, hm.Selected)
 	c := caches.NewModel(st, platforms)
@@ -81,6 +82,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if s == "r" && (m.route == "home" || m.route == "build" || m.route == "caches" || m.route == "hydrate" || m.route == "validations") {
 			m.nixState = engine.ProbeNix(m.caches.Status.Root)
+			m.home.SetNixState(m.nixState)
 			m.build.SetNixState(m.nixState)
 			m.caches.SetNixState(m.nixState)
 			m.hydrate.SetNixState(m.nixState)

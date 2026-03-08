@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/augurysys/augury-node-tui/internal/engine"
 	"github.com/augurysys/augury-node-tui/internal/nav"
 	"github.com/augurysys/augury-node-tui/internal/platform"
 	"github.com/augurysys/augury-node-tui/internal/status"
@@ -278,6 +279,55 @@ func TestDeveloperDownloads_MoxaUc3100UlrpmResolvesFromIndex(t *testing.T) {
 	}
 	if !strings.Contains(view, "built") {
 		t.Errorf("View should show built for moxa-uc3100-ulrpm; got %q", view)
+	}
+}
+
+func TestNixStatus_ReadyDisplaysCleanly(t *testing.T) {
+	st := status.RepoStatus{Root: "/repo", Branch: "main", SHA: "abc"}
+	m := NewModel(st, platform.Registry())
+	m.SetNixState(engine.NixState{Ready: true})
+	view := m.View()
+	if !strings.Contains(view, "nix: ready") {
+		t.Errorf("View should show 'nix: ready' when Nix is ready; got %q", view)
+	}
+}
+
+func TestNixStatus_NotReadyDisplaysFriendlyMessage(t *testing.T) {
+	tests := []struct {
+		name     string
+		reason   string
+		wantText string
+	}{
+		{
+			name:     "experimental features",
+			reason:   "error: experimental Nix feature 'nix-command' is disabled; use '--extra-experimental-features nix-command' to override",
+			wantText: "enable nix experimental features (see docs/configuration.md)",
+		},
+		{
+			name:     "timeout",
+			reason:   "probe timed out after 30s",
+			wantText: "nix probe timed out",
+		},
+		{
+			name:     "command not found",
+			reason:   "nix: command not found",
+			wantText: "nix command not found in PATH",
+		},
+	}
+	
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := status.RepoStatus{Root: "/repo", Branch: "main", SHA: "abc"}
+			m := NewModel(st, platform.Registry())
+			m.SetNixState(engine.NixState{Ready: false, Reason: tt.reason})
+			view := m.View()
+			if !strings.Contains(view, "nix: not ready") {
+				t.Errorf("View should show 'nix: not ready'; got %q", view)
+			}
+			if !strings.Contains(view, tt.wantText) {
+				t.Errorf("View should contain friendly message %q; got %q", tt.wantText, view)
+			}
+		})
 	}
 }
 
