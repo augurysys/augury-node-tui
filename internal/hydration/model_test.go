@@ -199,6 +199,50 @@ func TestHydrationModel_BlockedStateWhenNixNotReady(t *testing.T) {
 	}
 }
 
+func TestHydrationModel_BlockedReasonSurfacedInViewAndState(t *testing.T) {
+	tmp := t.TempDir()
+	root := filepath.Join(tmp, "repo")
+	scriptsDir := filepath.Join(root, "scripts")
+	if err := os.MkdirAll(scriptsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(scriptsDir, "hydrate"), []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	platforms := platform.Registry()
+	if len(platforms) == 0 {
+		t.Fatal("need at least one platform")
+	}
+	platID := platforms[0].ID
+	selected := map[string]bool{platID: true}
+	st := status.RepoStatus{Root: root, Branch: "main", SHA: "abc1234"}
+	m := NewModel(st, platforms, selected)
+	blockedReason := "nix develop failed: flake not found"
+	m.SetNixState(engine.NixState{Ready: false, Reason: blockedReason})
+
+	_, _ = m.Update(keyMsg("D"))
+	rowStatus := m.RowStatus(platID)
+	view := m.View()
+
+	if !strings.Contains(rowStatus, "blocked") {
+		t.Errorf("RowStatus = %q, want to contain blocked", rowStatus)
+	}
+	if !strings.Contains(rowStatus, blockedReason) {
+		t.Errorf("RowStatus = %q, want to contain reason %q", rowStatus, blockedReason)
+	}
+	if !strings.Contains(view, blockedReason) {
+		t.Errorf("View must contain blocked reason %q; got %q", blockedReason, view)
+	}
+
+	m2 := NewModel(st, platforms, selected)
+	m2.SetNixState(engine.NixState{Ready: false, Reason: blockedReason})
+	_, _ = m2.Update(keyMsg("H"))
+	rowStatusH := m2.RowStatus(platID)
+	if !strings.Contains(rowStatusH, blockedReason) {
+		t.Errorf("H blocked: RowStatus = %q, want to contain reason %q", rowStatusH, blockedReason)
+	}
+}
+
 func TestHydrationModel_NotAvailableStateWhenScriptMissing(t *testing.T) {
 	tmp := t.TempDir()
 	root := filepath.Join(tmp, "repo")

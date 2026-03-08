@@ -92,9 +92,13 @@ func (m *Model) dispatchDryRun() tea.Cmd {
 		}
 		return nil
 	}
-	if blocked, _ := engine.IsActionBlockedByNix(engine.ActionRequest{Kind: engine.KindHydration, Target: engine.TargetDryRun}, m.nixState); blocked {
+	if blocked, reason := engine.IsActionBlockedByNix(engine.ActionRequest{Kind: engine.KindHydration, Target: engine.TargetDryRun}, m.nixState); blocked {
+		s := "blocked"
+		if reason != "" {
+			s = "blocked: " + reason
+		}
 		for _, id := range ids {
-			m.rowStatus[id] = "blocked"
+			m.rowStatus[id] = s
 		}
 		return nil
 	}
@@ -118,9 +122,13 @@ func (m *Model) dispatchHydration() tea.Cmd {
 		}
 		return nil
 	}
-	if blocked, _ := engine.IsActionBlockedByNix(engine.ActionRequest{Kind: engine.KindHydration, Target: engine.TargetRun}, m.nixState); blocked {
+	if blocked, reason := engine.IsActionBlockedByNix(engine.ActionRequest{Kind: engine.KindHydration, Target: engine.TargetRun}, m.nixState); blocked {
+		s := "blocked"
+		if reason != "" {
+			s = "blocked: " + reason
+		}
 		for _, id := range ids {
-			m.rowStatus[id] = "blocked"
+			m.rowStatus[id] = s
 		}
 		return nil
 	}
