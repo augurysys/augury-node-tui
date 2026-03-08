@@ -30,8 +30,9 @@ func (s *RootStep) Update(msg tea.Msg) (*RootStep, tea.Cmd) {
 		case tea.KeyRunes:
 			s.userInput += string(msg.Runes)
 		case tea.KeyBackspace:
-			if len(s.userInput) > 0 {
-				s.userInput = s.userInput[:len(s.userInput)-1]
+			runes := []rune(s.userInput)
+			if len(runes) > 0 {
+				s.userInput = string(runes[:len(runes)-1])
 			}
 		}
 	}
