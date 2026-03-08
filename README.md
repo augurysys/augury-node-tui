@@ -18,6 +18,10 @@ Run from an augury-node repo root. The root must contain:
 
 See [docs/keybindings.md](docs/keybindings.md).
 
+## Phase 2 and Phase 3
+
+See [docs/phase2-phase3.md](docs/phase2-phase3.md) for cache actions, log navigation, developer-downloads states, and mandatory Nix policy.
+
 ## Log file path contract
 
 Build logs are written to `tmp/augury-node-tui/<platform>.log` under the augury-node root.

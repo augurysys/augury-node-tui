@@ -42,6 +42,52 @@ func TestDocsContract_READMEIncludesLogFilePathContract(t *testing.T) {
 	}
 }
 
+func TestDocsContract_DocsMandatoryNixPolicy(t *testing.T) {
+	phase23 := readFile(t, "phase2-phase3.md")
+	required := []string{"nix", "block", "ready"}
+	for _, r := range required {
+		if !strings.Contains(strings.ToLower(phase23), r) {
+			t.Errorf("docs must document mandatory Nix policy (missing %q in phase2-phase3.md)", r)
+		}
+	}
+}
+
+func TestDocsContract_DocsCacheActionKeys(t *testing.T) {
+	phase23 := readFile(t, "phase2-phase3.md")
+	buildUnit := []string{"B", "R", "D"}
+	platform := []string{"P", "U", "X"}
+	for _, k := range buildUnit {
+		if !strings.Contains(phase23, k) {
+			t.Errorf("docs must document build-unit cache action key %q", k)
+		}
+	}
+	for _, k := range platform {
+		if !strings.Contains(phase23, k) {
+			t.Errorf("docs must document platform-cache action key %q", k)
+		}
+	}
+}
+
+func TestDocsContract_DocsLogTabErrorNavigationKeys(t *testing.T) {
+	phase23 := readFile(t, "phase2-phase3.md")
+	required := []string{"tab", "e", "full", "error"}
+	for _, r := range required {
+		if !strings.Contains(strings.ToLower(phase23), r) {
+			t.Errorf("docs must document log tab/error navigation (missing %q in phase2-phase3.md)", r)
+		}
+	}
+}
+
+func TestDocsContract_DocsDeveloperDownloadsSourceStates(t *testing.T) {
+	phase23 := readFile(t, "phase2-phase3.md")
+	required := []string{"built", "hydrated", "missing", "unavailable"}
+	for _, r := range required {
+		if !strings.Contains(strings.ToLower(phase23), r) {
+			t.Errorf("docs must document developer-downloads source state %q", r)
+		}
+	}
+}
+
 func readFile(t *testing.T, name string) string {
 	t.Helper()
 	_, filename, _, _ := runtime.Caller(1)
