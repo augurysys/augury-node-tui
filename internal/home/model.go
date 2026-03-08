@@ -14,6 +14,7 @@ type Model struct {
 	Status    status.RepoStatus
 	Platforms []platform.Platform
 	Selected  map[string]bool
+	Focused   int
 }
 
 func NewModel(st status.RepoStatus, platforms []platform.Platform) *Model {
@@ -47,6 +48,18 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, func() tea.Msg { return nav.NavigateMsg{Route: "validations"} }
 		case "o":
 			return m, func() tea.Msg { return nav.NavigateMsg{Route: "hints"} }
+		case "j", "down":
+			m.Focused = (m.Focused + 1) % max(1, len(m.Platforms))
+			return m, nil
+		case "k", "up":
+			m.Focused = (m.Focused - 1 + len(m.Platforms)) % max(1, len(m.Platforms))
+			return m, nil
+		case " ", "space", "enter":
+			if len(m.Platforms) > 0 {
+				id := m.Platforms[m.Focused].ID
+				m.TogglePlatform(id)
+				return m, nil
+			}
 		}
 	}
 	return m, nil
@@ -66,13 +79,17 @@ func (m *Model) View() string {
 		}
 		b.WriteString(fmt.Sprintf("  %s %s\n", p, label))
 	}
-	b.WriteString("platforms:\n")
-	for _, p := range m.Platforms {
+	b.WriteString("platforms: j/k up/down space/enter toggle\n")
+	for i, p := range m.Platforms {
 		sel := " "
 		if m.Selected[p.ID] {
 			sel = "x"
 		}
-		b.WriteString(fmt.Sprintf("  [%s] %s\n", sel, p.ID))
+		cur := " "
+		if i == m.Focused {
+			cur = ">"
+		}
+		b.WriteString(fmt.Sprintf(" %s [%s] %s\n", cur, sel, p.ID))
 	}
 	b.WriteString("b build h hydrate c caches v validations o hints a replay q quit\n")
 	return b.String()

@@ -19,10 +19,9 @@ func main() {
 	}
 	root, err := workspace.ResolveRoot("", "", cwd)
 	if err != nil {
-		root = cwd
-	}
-	if root == "" {
-		root = "."
+		fmt.Fprintf(os.Stderr, "augury-node-tui: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Run from an augury-node repo or pass --root.\n")
+		os.Exit(1)
 	}
 	st, err := status.Collect(root)
 	if err != nil {

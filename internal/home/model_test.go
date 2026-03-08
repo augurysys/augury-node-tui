@@ -160,3 +160,30 @@ func TestHomeModel_KeyO_EmitsNavigate(t *testing.T) {
 	}
 }
 
+func TestHomeModel_KeyJ_MovesFocusDown(t *testing.T) {
+	platforms := platform.Registry()
+	if len(platforms) < 2 {
+		t.Skip("need at least 2 platforms")
+	}
+	m := NewModel(status.RepoStatus{Root: "/x", Branch: "main", SHA: "x"}, platforms)
+	model, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
+	m = model.(*Model)
+	if m.Focused != 1 {
+		t.Errorf("j should move focus to 1; got %d", m.Focused)
+	}
+}
+
+func TestHomeModel_KeySpace_TogglesPlatform(t *testing.T) {
+	platforms := platform.Registry()
+	if len(platforms) == 0 {
+		t.Fatal("need at least one platform")
+	}
+	m := NewModel(status.RepoStatus{Root: "/x", Branch: "main", SHA: "x"}, platforms)
+	id := platforms[0].ID
+	model, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(" ")})
+	m = model.(*Model)
+	if !m.IsPlatformSelected(id) {
+		t.Error("space should toggle platform selection")
+	}
+}
+

@@ -1,12 +1,14 @@
 package build
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/augurysys/augury-node-tui/internal/nav"
 	"github.com/augurysys/augury-node-tui/internal/platform"
 	"github.com/augurysys/augury-node-tui/internal/run"
 	"github.com/augurysys/augury-node-tui/internal/status"
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func TestBuildModel_ModeSelectionDefaultsToSmart(t *testing.T) {
@@ -105,5 +107,36 @@ func TestBuildModel_CycleMode(t *testing.T) {
 	m.CycleMode()
 	if m.Mode != run.ModeSmart {
 		t.Errorf("after third cycle: want Smart; got %q", m.Mode)
+	}
+}
+
+func TestBuildModel_ViewRendersPreflightPlan(t *testing.T) {
+	platforms := platform.Registry()
+	if len(platforms) == 0 {
+		t.Fatal("need at least one platform")
+	}
+	selected := map[string]bool{platforms[0].ID: true}
+	m := NewModel(status.RepoStatus{Root: "/x", Branch: "main", SHA: "x"}, platforms, selected)
+	view := m.View()
+	if view == "" {
+		t.Fatal("View must not be empty")
+	}
+	if !strings.Contains(view, "Build pre-flight") {
+		t.Errorf("View should contain pre-flight header; got %q", view)
+	}
+	if !strings.Contains(view, platforms[0].ID) {
+		t.Errorf("View should contain selected platform; got %q", view)
+	}
+}
+
+func TestBuildModel_EnterEmitsConfirmPlanMsg(t *testing.T) {
+	m := NewModel(status.RepoStatus{Root: "/x", Branch: "main", SHA: "x"}, platform.Registry(), nil)
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("Enter must return a cmd")
+	}
+	msg := cmd()
+	if _, ok := msg.(ConfirmPlanMsg); !ok {
+		t.Errorf("Enter must produce ConfirmPlanMsg; got %T", msg)
 	}
 }

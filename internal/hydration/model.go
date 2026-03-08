@@ -8,6 +8,7 @@ import (
 	"github.com/augurysys/augury-node-tui/internal/platform"
 	"github.com/augurysys/augury-node-tui/internal/run"
 	"github.com/augurysys/augury-node-tui/internal/status"
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 type DryRunRow struct {
@@ -24,6 +25,14 @@ type Model struct {
 
 func NewModel(st status.RepoStatus, platforms []platform.Platform, selected map[string]bool) *Model {
 	return &Model{Status: st, Platforms: platforms, Selected: selected}
+}
+
+func (m *Model) Init() tea.Cmd {
+	return nil
+}
+
+func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	return m, nil
 }
 
 func (m *Model) DryRunRows() []DryRunRow {

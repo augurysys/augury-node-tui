@@ -7,6 +7,7 @@ import (
 
 	"github.com/augurysys/augury-node-tui/internal/run"
 	"github.com/augurysys/augury-node-tui/internal/status"
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 var presets = []string{"all", "shellcheck-only", "bats-only", "parse-test-only"}
@@ -27,6 +28,14 @@ type Model struct {
 
 func NewModel(st status.RepoStatus) *Model {
 	return &Model{Status: st}
+}
+
+func (m *Model) Init() tea.Cmd {
+	return nil
+}
+
+func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	return m, nil
 }
 
 func (m *Model) CommandForPreset(preset string) (run.RunSpec, bool) {

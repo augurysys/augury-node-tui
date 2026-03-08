@@ -6,6 +6,7 @@ import (
 
 	"github.com/augurysys/augury-node-tui/internal/platform"
 	"github.com/augurysys/augury-node-tui/internal/status"
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 const (
@@ -22,6 +23,20 @@ type Model struct {
 
 func NewModel(st status.RepoStatus, platforms []platform.Platform) *Model {
 	return &Model{Status: st, Platforms: platforms, activeTab: TabBuildUnit}
+}
+
+func (m *Model) Init() tea.Cmd {
+	return nil
+}
+
+func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		if msg.String() == "tab" || msg.String() == "t" {
+			m.NextTab()
+		}
+	}
+	return m, nil
 }
 
 func (m *Model) ActiveTab() int {

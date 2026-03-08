@@ -92,8 +92,22 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		child, cmd := m.build.Update(msg)
 		m.build = child.(*build.Model)
 		return m, cmd
-	case "hydrate", "caches", "validations", "hints":
-		return m, nil
+	case "hydrate":
+		child, cmd := m.hydrate.Update(msg)
+		m.hydrate = child.(*hydration.Model)
+		return m, cmd
+	case "caches":
+		child, cmd := m.caches.Update(msg)
+		m.caches = child.(*caches.Model)
+		return m, cmd
+	case "validations":
+		child, cmd := m.validations.Update(msg)
+		m.validations = child.(*validations.Model)
+		return m, cmd
+	case "hints":
+		child, cmd := m.hints.Update(msg)
+		m.hints = child.(*hints.Model)
+		return m, cmd
 	default:
 		return m, nil
 	}

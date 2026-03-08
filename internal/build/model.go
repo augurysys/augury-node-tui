@@ -2,7 +2,9 @@ package build
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/augurysys/augury-node-tui/internal/nav"
 	"github.com/augurysys/augury-node-tui/internal/platform"
@@ -28,6 +30,7 @@ type Model struct {
 	ForceRebuild map[string]bool
 	Summary      *Summary
 	BuildCancel  context.CancelFunc
+	Focused      int
 }
 
 func NewModel(st status.RepoStatus, platforms []platform.Platform, selected map[string]bool) *Model {
@@ -50,6 +53,38 @@ func (m *Model) Init() tea.Cmd {
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		s := msg.String()
+		switch s {
+		case "enter":
+			return m, func() tea.Msg { return ConfirmPlanMsg{} }
+		case "f":
+			plan := m.Plan()
+			var entries []PlanEntry
+			if len(plan.Entries) > 0 {
+				entries = plan.Entries
+			} else {
+				for _, p := range m.Platforms {
+					if m.Selected[p.ID] {
+						entries = append(entries, PlanEntry{PlatformID: p.ID})
+					}
+				}
+			}
+			if len(entries) > 0 {
+				idx := m.focusedIndex(len(entries))
+				m.ToggleForceRebuild(entries[idx].PlatformID)
+			}
+			return m, nil
+		case "m":
+			m.CycleMode()
+			return m, nil
+		case "j", "down":
+			m.Focused++
+			return m, nil
+		case "k", "up":
+			m.Focused--
+			return m, nil
+		}
 	case ConfirmPlanMsg:
 		return m, func() tea.Msg { return StartBuildMsg{} }
 	case CancelPlanMsg:
@@ -77,8 +112,53 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m *Model) focusedIndex(n int) int {
+	if n <= 0 {
+		return 0
+	}
+	return (m.Focused%n + n) % n
+}
+
 func (m *Model) View() string {
-	return ""
+	plan := m.Plan()
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("Build pre-flight | mode: %s\n", plan.Mode))
+	b.WriteString("m cycle mode | f toggle force rebuild | Enter confirm | Esc/b back\n")
+	b.WriteString("platforms in plan:\n")
+	var entries []PlanEntry
+	if len(plan.Entries) > 0 {
+		entries = plan.Entries
+	} else {
+		for _, p := range m.Platforms {
+			if m.Selected[p.ID] {
+				entries = append(entries, PlanEntry{PlatformID: p.ID})
+			}
+		}
+	}
+	focused := m.focusedIndex(len(entries))
+	for i, e := range entries {
+		force := ""
+		if plan.ForceRebuild[e.PlatformID] {
+			force = " [force]"
+		}
+		cur := " "
+		if i == focused {
+			cur = ">"
+		}
+		present := "?"
+		if e.LocalArtifactPresent != nil {
+			if *e.LocalArtifactPresent {
+				present = "yes"
+			} else {
+				present = "no"
+			}
+		}
+		b.WriteString(fmt.Sprintf(" %s %s %s%s\n", cur, e.PlatformID, present, force))
+	}
+	if len(entries) == 0 {
+		b.WriteString("  (none selected)\n")
+	}
+	return b.String()
 }
 
 func (m *Model) Plan() *Plan {

@@ -6,6 +6,7 @@ import (
 
 	"github.com/augurysys/augury-node-tui/internal/platform"
 	"github.com/augurysys/augury-node-tui/internal/status"
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 type Model struct {
@@ -15,6 +16,14 @@ type Model struct {
 
 func NewModel(st status.RepoStatus, platforms []platform.Platform) *Model {
 	return &Model{Status: st, Platforms: platforms}
+}
+
+func (m *Model) Init() tea.Cmd {
+	return nil
+}
+
+func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	return m, nil
 }
 
 func (m *Model) View() string {
