@@ -1,10 +1,12 @@
 package hydration
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/augurysys/augury-node-tui/internal/engine"
 	"github.com/augurysys/augury-node-tui/internal/platform"
 	"github.com/augurysys/augury-node-tui/internal/run"
 	"github.com/augurysys/augury-node-tui/internal/status"
@@ -21,10 +23,16 @@ type Model struct {
 	Status    status.RepoStatus
 	Platforms []platform.Platform
 	Selected  map[string]bool
+	rowStatus map[string]string
 }
 
 func NewModel(st status.RepoStatus, platforms []platform.Platform, selected map[string]bool) *Model {
-	return &Model{Status: st, Platforms: platforms, Selected: selected}
+	return &Model{
+		Status:    st,
+		Platforms: platforms,
+		Selected:  selected,
+		rowStatus: make(map[string]string),
+	}
 }
 
 func (m *Model) Init() tea.Cmd {
@@ -32,7 +40,113 @@ func (m *Model) Init() tea.Cmd {
 }
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		k := msg.String()
+		if k == "D" {
+			return m, m.dispatchDryRun()
+		}
+		if k == "H" {
+			return m, m.dispatchHydration()
+		}
+		return m, nil
+	case jobResultMsg:
+		m.handleJobResult(msg.Job, msg.Request)
+		return m, nil
+	}
 	return m, nil
+}
+
+type jobResultMsg struct {
+	Job     engine.Job
+	Request engine.ActionRequest
+}
+
+func (m *Model) selectedPlatformIDs() []string {
+	var ids []string
+	for _, p := range m.Platforms {
+		if m.Selected[p.ID] {
+			ids = append(ids, p.ID)
+		}
+	}
+	return ids
+}
+
+func (m *Model) dispatchDryRun() tea.Cmd {
+	ids := m.selectedPlatformIDs()
+	if len(ids) == 0 {
+		return nil
+	}
+	cap := engine.ResolveCapability(m.Status.Root, engine.ActionRequest{Kind: engine.KindHydration, Target: engine.TargetDryRun})
+	if !cap.Available {
+		for _, id := range ids {
+			m.rowStatus[id] = "not-available"
+		}
+		return nil
+	}
+	nix := engine.ProbeNix(m.Status.Root)
+	if blocked, _ := engine.IsActionBlockedByNix(engine.ActionRequest{Kind: engine.KindHydration, Target: engine.TargetDryRun}, nix); blocked {
+		for _, id := range ids {
+			m.rowStatus[id] = "blocked"
+		}
+		return nil
+	}
+	cmds := make([]tea.Cmd, 0, len(ids))
+	for _, id := range ids {
+		req := engine.ActionRequest{Kind: engine.KindHydration, Target: engine.TargetDryRun, PlatformID: id}
+		cmds = append(cmds, m.dispatchAction(req))
+	}
+	return tea.Batch(cmds...)
+}
+
+func (m *Model) dispatchHydration() tea.Cmd {
+	ids := m.selectedPlatformIDs()
+	if len(ids) == 0 {
+		return nil
+	}
+	cap := engine.ResolveCapability(m.Status.Root, engine.ActionRequest{Kind: engine.KindHydration, Target: engine.TargetRun})
+	if !cap.Available {
+		for _, id := range ids {
+			m.rowStatus[id] = "not-available"
+		}
+		return nil
+	}
+	nix := engine.ProbeNix(m.Status.Root)
+	if blocked, _ := engine.IsActionBlockedByNix(engine.ActionRequest{Kind: engine.KindHydration, Target: engine.TargetRun}, nix); blocked {
+		for _, id := range ids {
+			m.rowStatus[id] = "blocked"
+		}
+		return nil
+	}
+	cmds := make([]tea.Cmd, 0, len(ids))
+	for _, id := range ids {
+		req := engine.ActionRequest{Kind: engine.KindHydration, Target: engine.TargetRun, PlatformID: id}
+		cmds = append(cmds, m.dispatchAction(req))
+	}
+	return tea.Batch(cmds...)
+}
+
+func (m *Model) dispatchAction(req engine.ActionRequest) tea.Cmd {
+	root := m.Status.Root
+	return func() tea.Msg {
+		job := engine.ExecuteAction(context.Background(), root, req)
+		return jobResultMsg{Job: job, Request: req}
+	}
+}
+
+func (m *Model) handleJobResult(job engine.Job, req engine.ActionRequest) {
+	key := req.PlatformID
+	if key == "" {
+		key = "global"
+	}
+	m.rowStatus[key] = string(job.State)
+	if job.Reason != "" {
+		m.rowStatus[key] += ": " + job.Reason
+	}
+}
+
+func (m *Model) RowStatus(platformID string) string {
+	return m.rowStatus[platformID]
 }
 
 func (m *Model) DryRunRows() []DryRunRow {
@@ -96,13 +210,14 @@ func (m *Model) View() string {
 		b.WriteString("scripts/hydrate not found in target repo.\n")
 		return b.String()
 	}
-	b.WriteString("platform | local | source\n")
+	b.WriteString("platform | local | source | status\n")
 	for _, r := range rows {
 		local := "no"
 		if r.LocalPresent {
 			local = "yes"
 		}
-		b.WriteString(r.PlatformID + " | " + local + " | " + r.PlannedSource + "\n")
+		s := m.RowStatus(r.PlatformID)
+		b.WriteString(r.PlatformID + " | " + local + " | " + r.PlannedSource + " | " + s + "\n")
 	}
 	return b.String()
 }
