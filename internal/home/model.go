@@ -269,7 +269,10 @@ func friendlyNixReason(reason string) string {
 	}
 	lower := strings.ToLower(reason)
 	if strings.Contains(lower, "experimental") && strings.Contains(lower, "nix-command") {
-		return "enable experimental features in ~/.config/nix/nix.conf"
+		return "run: nix develop .#dev-env (enable experimental features)"
+	}
+	if strings.Contains(lower, "permission denied") && strings.Contains(lower, "daemon-socket") {
+		return "run: sudo systemctl restart nix-daemon (or reboot)"
 	}
 	if strings.Contains(lower, "timed out") || strings.Contains(lower, "timeout") {
 		return "probe timed out"
@@ -277,8 +280,8 @@ func friendlyNixReason(reason string) string {
 	if strings.Contains(lower, "not found") || strings.Contains(lower, "command not found") {
 		return "command not found in PATH"
 	}
-	if len(reason) > 60 {
-		return reason[:57] + "..."
+	if len(reason) > 50 {
+		return reason[:47] + "..."
 	}
 	return reason
 }
