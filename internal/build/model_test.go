@@ -58,6 +58,36 @@ func TestBuildModel_CancelEmitsCancelMsg(t *testing.T) {
 	}
 }
 
+func TestBuildModel_PlanBuiltFromSelectedPlatformsOnly(t *testing.T) {
+	platforms := platform.Registry()
+	if len(platforms) < 2 {
+		t.Fatal("need at least two platforms")
+	}
+	selected := map[string]bool{platforms[0].ID: true, platforms[1].ID: false}
+	m := NewModel(status.RepoStatus{Root: "/x", Branch: "main", SHA: "x"}, platforms, selected)
+	plan := m.Plan()
+	if len(plan.Entries) != 1 {
+		t.Errorf("plan must include only selected platforms; got %d entries, want 1", len(plan.Entries))
+	}
+	if len(plan.Entries) > 0 && plan.Entries[0].PlatformID != platforms[0].ID {
+		t.Errorf("plan entry must be selected platform %q; got %q", platforms[0].ID, plan.Entries[0].PlatformID)
+	}
+}
+
+func TestBuildModel_PlanUsesModelForceRebuildState(t *testing.T) {
+	platforms := platform.Registry()
+	if len(platforms) == 0 {
+		t.Fatal("need at least one platform")
+	}
+	selected := map[string]bool{platforms[0].ID: true}
+	m := NewModel(status.RepoStatus{Root: "/x", Branch: "main", SHA: "x"}, platforms, selected)
+	m.ToggleForceRebuild(platforms[0].ID)
+	plan := m.Plan()
+	if !plan.ForceRebuild[platforms[0].ID] {
+		t.Error("plan must use model-level force rebuild state")
+	}
+}
+
 func TestBuildModel_CycleMode(t *testing.T) {
 	m := NewModel(status.RepoStatus{Root: "/x", Branch: "main", SHA: "x"}, platform.Registry(), nil)
 	if m.Mode != run.ModeSmart {

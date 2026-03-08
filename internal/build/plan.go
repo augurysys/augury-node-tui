@@ -50,11 +50,7 @@ func BuildPlan(root string, platforms []platform.Platform, mode run.Mode, forceR
 }
 
 func artifactPresent(outputPath string) *bool {
-	info, err := os.Stat(outputPath)
-	if err != nil {
-		b := false
-		return &b
-	}
-	b := info.IsDir()
+	_, err := os.Stat(outputPath)
+	b := err == nil
 	return &b
 }

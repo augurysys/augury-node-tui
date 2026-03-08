@@ -56,6 +56,35 @@ func TestPlanBuilder_ValidationOnlySkipsPlatformBuildScripts(t *testing.T) {
 	}
 }
 
+func TestPlanBuilder_ArtifactPresentTreatsFileAsPresent(t *testing.T) {
+	tmp := t.TempDir()
+	f := filepath.Join(tmp, "artifact.tar")
+	if err := os.WriteFile(f, []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	got := artifactPresent(f)
+	if got == nil {
+		t.Fatal("artifactPresent must return non-nil")
+	}
+	if !*got {
+		t.Error("artifactPresent must treat existing file as present; got false")
+	}
+}
+
+func TestPlanBuilder_ArtifactPresentTreatsDirAsPresent(t *testing.T) {
+	tmp := t.TempDir()
+	if err := os.MkdirAll(tmp, 0755); err != nil {
+		t.Fatal(err)
+	}
+	got := artifactPresent(tmp)
+	if got == nil {
+		t.Fatal("artifactPresent must return non-nil")
+	}
+	if !*got {
+		t.Error("artifactPresent must treat existing directory as present; got false")
+	}
+}
+
 func TestPlanBuilder_PerPlatformForceRebuildToggleExists(t *testing.T) {
 	tmp := t.TempDir()
 	root := filepath.Join(tmp, "repo")

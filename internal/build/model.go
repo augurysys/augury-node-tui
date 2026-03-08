@@ -15,18 +15,20 @@ type StartBuildMsg struct{}
 type NavigateBackMsg struct{}
 
 type Model struct {
-	Status   status.RepoStatus
-	Platforms []platform.Platform
-	Selected map[string]bool
-	Mode     run.Mode
+	Status       status.RepoStatus
+	Platforms    []platform.Platform
+	Selected     map[string]bool
+	Mode         run.Mode
+	ForceRebuild map[string]bool
 }
 
 func NewModel(st status.RepoStatus, platforms []platform.Platform, selected map[string]bool) *Model {
 	m := &Model{
-		Status:    st,
-		Platforms: platforms,
-		Selected:  selected,
-		Mode:      run.ModeSmart,
+		Status:       st,
+		Platforms:    platforms,
+		Selected:     selected,
+		Mode:         run.ModeSmart,
+		ForceRebuild: make(map[string]bool),
 	}
 	if m.Selected == nil {
 		m.Selected = make(map[string]bool)
@@ -50,6 +52,23 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *Model) View() string {
 	return ""
+}
+
+func (m *Model) Plan() *Plan {
+	var selected []platform.Platform
+	for _, p := range m.Platforms {
+		if m.Selected[p.ID] {
+			selected = append(selected, p)
+		}
+	}
+	return BuildPlan(m.Status.Root, selected, m.Mode, m.ForceRebuild)
+}
+
+func (m *Model) ToggleForceRebuild(id string) {
+	if m.ForceRebuild == nil {
+		m.ForceRebuild = make(map[string]bool)
+	}
+	m.ForceRebuild[id] = !m.ForceRebuild[id]
 }
 
 func (m *Model) CycleMode() {
