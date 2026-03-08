@@ -14,7 +14,8 @@ func TestCapabilities_EachActionMapsToRequiredScriptPath(t *testing.T) {
 		req    ActionRequest
 		expect string
 	}{
-		{"build-unit build", ActionRequest{Kind: KindBuildUnit, Target: TargetBuild, PlatformID: "moxa-uc3100"}, "scripts/devices/moxa-uc3100-build.sh"},
+		{"build-unit build moxa-uc3100", ActionRequest{Kind: KindBuildUnit, Target: TargetBuild, PlatformID: "moxa-uc3100"}, "scripts/devices/moxa-uc3100-build.sh"},
+		{"build-unit build mp255-ulrpm", ActionRequest{Kind: KindBuildUnit, Target: TargetBuild, PlatformID: "mp255-ulrpm"}, "scripts/devices/mp255-ulrpm.sh"},
 		{"build-unit pull", BuildUnitPull, "scripts/dev/pull-artifacts.sh"},
 		{"build-unit delete", BuildUnitDelete, "scripts/dev/delete-build-unit-cache.sh"},
 		{"platform-cache pull", PlatformCachePull, "scripts/dev/pull-artifacts.sh"},
@@ -68,6 +69,34 @@ func TestCapabilities_NotAvailableIncludesMissingScriptReason(t *testing.T) {
 	}
 	if !strings.Contains(strings.ToLower(cap.Reason), "script") && !strings.Contains(strings.ToLower(cap.Reason), "missing") && !strings.Contains(strings.ToLower(cap.Reason), "not found") {
 		t.Errorf("Reason should mention missing script, got %q", cap.Reason)
+	}
+}
+
+func TestCapabilities_BuildUnitBuildUnknownPlatformUnavailable(t *testing.T) {
+	root := t.TempDir()
+	req := ActionRequest{Kind: KindBuildUnit, Target: TargetBuild, PlatformID: "unknown-platform"}
+	cap := ResolveCapability(root, req)
+	if cap.Available {
+		t.Errorf("want Available=false for unknown platform")
+	}
+	if cap.Reason == "" {
+		t.Errorf("want non-empty Reason for unknown platform")
+	}
+	if !strings.Contains(strings.ToLower(cap.Reason), "unknown") && !strings.Contains(cap.Reason, "unknown-platform") {
+		t.Errorf("Reason should mention unknown platform, got %q", cap.Reason)
+	}
+}
+
+func TestCapabilities_EmptyRootReturnsUnavailable(t *testing.T) {
+	cap := ResolveCapability("", ValidationsAll)
+	if cap.Available {
+		t.Errorf("want Available=false for empty root")
+	}
+	if cap.Reason == "" {
+		t.Errorf("want non-empty Reason for empty root")
+	}
+	if !strings.Contains(strings.ToLower(cap.Reason), "root") && !strings.Contains(strings.ToLower(cap.Reason), "empty") {
+		t.Errorf("Reason should mention empty root, got %q", cap.Reason)
 	}
 }
 
