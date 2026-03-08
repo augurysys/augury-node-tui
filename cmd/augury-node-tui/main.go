@@ -33,9 +33,9 @@ func main() {
 	}
 	// NewModel probes nix at init; app enforces mandatory nix gating for executable actions
 	m := app.NewModel(st, platform.Registry(), 2*time.Second)
-	p := tea.NewProgram(m)
+	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
-		fmt.Printf("error: %v\n", err)
+		fmt.Fprintf(os.Stderr, "augury-node-tui: %v\n", err)
 		os.Exit(1)
 	}
 }
