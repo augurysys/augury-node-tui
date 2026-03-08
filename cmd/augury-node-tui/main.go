@@ -13,10 +13,16 @@ import (
 )
 
 func main() {
-	cwd, _ := os.Getwd()
+	cwd, err := os.Getwd()
+	if err != nil {
+		cwd = "."
+	}
 	root, err := workspace.ResolveRoot("", "", cwd)
 	if err != nil {
 		root = cwd
+	}
+	if root == "" {
+		root = "."
 	}
 	st, err := status.Collect(root)
 	if err != nil {
