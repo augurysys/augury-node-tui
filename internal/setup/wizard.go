@@ -14,21 +14,31 @@ import (
 type LaunchMainTUIMsg struct{}
 
 type WizardModel struct {
-	currentStep  int
-	stepRoot     *RootStep
-	stepNix      *NixStepModel
-	stepGroups   *GroupsStepModel
-	stepInstall  *InstallStepModel
-	stepNixBuild *BuildStepModel
-	stepSuccess  *SuccessStepModel
-	config       config.Config
-	launchMain   bool
+	currentStep   int
+	stepRoot      *RootStep
+	stepNix       *NixStepModel
+	stepGroups    *GroupsStepModel
+	stepInstall   *InstallStepModel
+	stepNixBuild  *BuildStepModel
+	stepSuccess   *SuccessStepModel
+	config        config.Config
+	launchMain    bool
+	reconfiguring bool
 }
 
-func NewWizard() *WizardModel {
+func NewWizard(reconfigure bool) *WizardModel {
 	cwd, _ := os.Getwd()
 	detected, _ := FindAuguryNodeRoot(cwd)
 	binaryPath, _ := os.Executable()
+
+	reconfiguring := reconfigure
+	if !reconfiguring {
+		if path, err := config.DefaultPath(); err == nil {
+			if cfg, err := config.Read(path); err == nil && cfg.AuguryNodeRoot != "" {
+				reconfiguring = true
+			}
+		}
+	}
 
 	return &WizardModel{
 		currentStep:  0,
@@ -38,6 +48,7 @@ func NewWizard() *WizardModel {
 		stepInstall:  NewInstallStep(binaryPath),
 		stepNixBuild: nil,
 		stepSuccess:  NewSuccessStep(),
+		reconfiguring: reconfiguring,
 	}
 }
 
@@ -171,7 +182,11 @@ func (m *WizardModel) updateCurrentStep(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *WizardModel) View() string {
-	title := styles.Title.Render(fmt.Sprintf("Step %d/6", m.currentStep+1))
+	titleStr := fmt.Sprintf("Step %d/6", m.currentStep+1)
+	if m.reconfiguring {
+		titleStr = "Reconfiguring... " + titleStr
+	}
+	title := styles.Title.Render(titleStr)
 	var stepView string
 	switch m.currentStep {
 	case 0:
@@ -198,4 +213,9 @@ func (m *WizardModel) View() string {
 
 func (m *WizardModel) LaunchMainRequested() bool {
 	return m.launchMain
+}
+
+// CurrentStep returns the 0-based index of the current wizard step (for testing).
+func (m *WizardModel) CurrentStep() int {
+	return m.currentStep
 }

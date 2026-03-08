@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"time"
@@ -47,7 +48,11 @@ func main() {
 }
 
 func runSetupWizard() {
-	wizard := setup.NewWizard()
+	fs := flag.NewFlagSet("setup", flag.ContinueOnError)
+	reconfigure := fs.Bool("reconfigure", false, "run wizard even if config exists")
+	_ = fs.Parse(os.Args[2:])
+
+	wizard := setup.NewWizard(*reconfigure)
 	p := tea.NewProgram(wizard, tea.WithAltScreen())
 
 	finalModel, err := p.Run()

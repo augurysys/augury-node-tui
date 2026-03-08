@@ -6,14 +6,14 @@ import (
 )
 
 func TestWizard_InitStartsAtRootStep(t *testing.T) {
-	w := NewWizard()
+	w := NewWizard(false)
 	if w.currentStep != 0 {
 		t.Error("Wizard should start at step 0")
 	}
 }
 
 func TestWizard_NextStepMsgAdvances(t *testing.T) {
-	w := NewWizard()
+	w := NewWizard(false)
 	w.currentStep = 0
 	model, _ := w.Update(NextStepMsg{})
 	w = model.(*WizardModel)
@@ -23,7 +23,7 @@ func TestWizard_NextStepMsgAdvances(t *testing.T) {
 }
 
 func TestWizard_ViewShowsProgressIndicator(t *testing.T) {
-	w := NewWizard()
+	w := NewWizard(false)
 	w.currentStep = 2
 	view := w.View()
 	if !strings.Contains(view, "Step") || !strings.Contains(view, "/6") {
@@ -32,7 +32,7 @@ func TestWizard_ViewShowsProgressIndicator(t *testing.T) {
 }
 
 func TestWizard_LaunchMainTUIExits(t *testing.T) {
-	w := NewWizard()
+	w := NewWizard(false)
 	w.currentStep = 5
 	model, cmd := w.Update(LaunchMainTUIMsg{})
 	w = model.(*WizardModel)
