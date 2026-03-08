@@ -9,6 +9,7 @@ import (
 	"github.com/augurysys/augury-node-tui/internal/engine"
 	"github.com/augurysys/augury-node-tui/internal/run"
 	"github.com/augurysys/augury-node-tui/internal/status"
+	"github.com/augurysys/augury-node-tui/internal/visual/diagram"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -46,6 +47,7 @@ type jobResultMsg struct {
 type Model struct {
 	Status       status.RepoStatus
 	presetStatus map[string]string
+	Width        int
 }
 
 func NewModel(st status.RepoStatus) *Model {
@@ -61,6 +63,9 @@ func (m *Model) Init() tea.Cmd {
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.Width = msg.Width
+		return m, nil
 	case tea.KeyMsg:
 		k := msg.String()
 		if preset, ok := keyToPreset[k]; ok {
@@ -153,6 +158,10 @@ func (m *Model) CommandForPreset(preset string) (run.RunSpec, bool) {
 
 func (m *Model) View() string {
 	var b strings.Builder
+	if m.Width >= diagram.MinDiagramWidth {
+		b.WriteString(diagram.ValidationPipeline())
+		b.WriteString("\n")
+	}
 	b.WriteString("Validations\n")
 	b.WriteString("1 all | 2 shellcheck | 3 bats | 4 parse-test\n")
 	b.WriteString("Presets: all, shellcheck-only, bats-only, parse-test-only\n")

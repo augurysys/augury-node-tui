@@ -147,6 +147,26 @@ func TestValidationsModel_NotAvailableWhenRequiredScriptsMissing(t *testing.T) {
 	}
 }
 
+func TestDiagram_ValidationsViewIncludesDiagramWhenWideEnough(t *testing.T) {
+	st := status.RepoStatus{Root: "/x", Branch: "main", SHA: "x"}
+	m := NewModel(st)
+	_, _ = m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	view := m.View()
+	if !strings.Contains(view, "\u250c") {
+		t.Errorf("View must include validation pipeline diagram (box-drawing) when width >= 60; got %q", view)
+	}
+}
+
+func TestDiagram_ValidationsViewExcludesDiagramWhenTooNarrow(t *testing.T) {
+	st := status.RepoStatus{Root: "/x", Branch: "main", SHA: "x"}
+	m := NewModel(st)
+	_, _ = m.Update(tea.WindowSizeMsg{Width: 40, Height: 24})
+	view := m.View()
+	if strings.Contains(view, "\u250c") {
+		t.Errorf("View should not include box-drawing diagram when width < 60")
+	}
+}
+
 func TestValidationsModel_ResultSummaryUpdatesAfterRun(t *testing.T) {
 	tmp := t.TempDir()
 	root := filepath.Join(tmp, "repo")

@@ -8,6 +8,7 @@ import (
 	"github.com/augurysys/augury-node-tui/internal/nav"
 	"github.com/augurysys/augury-node-tui/internal/platform"
 	"github.com/augurysys/augury-node-tui/internal/status"
+	"github.com/augurysys/augury-node-tui/internal/visual/diagram"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -18,6 +19,7 @@ type Model struct {
 	Focused                int
 	DeveloperDownloads     *developerdownloads.Index
 	DeveloperDownloadsErr  error
+	Width                  int
 }
 
 func NewModel(st status.RepoStatus, platforms []platform.Platform) *Model {
@@ -35,6 +37,9 @@ func (m *Model) Init() tea.Cmd {
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.Width = msg.Width
+		return m, nil
 	case tea.KeyMsg:
 		s := msg.String()
 		switch s {
@@ -71,6 +76,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *Model) View() string {
 	var b strings.Builder
+	if m.Width >= diagram.MinDiagramWidth {
+		b.WriteString(diagram.PlatformFlow(m.Platforms))
+		b.WriteString("\n")
+	}
 	b.WriteString(fmt.Sprintf("root: %s\n", m.Status.Root))
 	b.WriteString(fmt.Sprintf("branch: %s\n", m.Status.Branch))
 	b.WriteString(fmt.Sprintf("sha: %s\n", m.Status.SHA))

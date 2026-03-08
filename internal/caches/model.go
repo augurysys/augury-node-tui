@@ -8,6 +8,7 @@ import (
 	"github.com/augurysys/augury-node-tui/internal/engine"
 	"github.com/augurysys/augury-node-tui/internal/platform"
 	"github.com/augurysys/augury-node-tui/internal/status"
+	"github.com/augurysys/augury-node-tui/internal/visual/diagram"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -26,6 +27,7 @@ type Model struct {
 	confirmShown        bool
 	pendingConfirmReq   engine.ActionRequest
 	rowStatus           map[string]string
+	Width               int
 }
 
 func NewModel(st status.RepoStatus, platforms []platform.Platform) *Model {
@@ -70,6 +72,9 @@ func (m *Model) selectedPlatformID() string {
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.Width = msg.Width
+		return m, nil
 	case tea.KeyMsg:
 		k := msg.String()
 		if m.confirmShown {
@@ -168,6 +173,10 @@ func (m *Model) RowStatus(platformID string) string {
 
 func (m *Model) View() string {
 	var b strings.Builder
+	if m.Width >= diagram.MinDiagramWidth {
+		b.WriteString(diagram.CacheTopology(m.activeTab))
+		b.WriteString("\n")
+	}
 	b.WriteString("Caches\n")
 	b.WriteString(fmt.Sprintf("Tab: %s\n", m.ActiveTabName()))
 	if m.disabledReason != "" {

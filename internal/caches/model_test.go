@@ -172,6 +172,26 @@ func TestCachesModel_TabsRenderReadOnlyDataSources(t *testing.T) {
 	}
 }
 
+func TestDiagram_CachesViewIncludesDiagramWhenWideEnough(t *testing.T) {
+	st := status.RepoStatus{Root: "/repo", Branch: "main", SHA: "x"}
+	m := NewModel(st, platform.Registry())
+	_, _ = m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	view := m.View()
+	if !strings.Contains(view, "\u250c") {
+		t.Errorf("View must include cache topology diagram (box-drawing) when width >= 60; got %q", view)
+	}
+}
+
+func TestDiagram_CachesViewExcludesDiagramWhenTooNarrow(t *testing.T) {
+	st := status.RepoStatus{Root: "/repo", Branch: "main", SHA: "x"}
+	m := NewModel(st, platform.Registry())
+	_, _ = m.Update(tea.WindowSizeMsg{Width: 40, Height: 24})
+	view := m.View()
+	if strings.Contains(view, "\u250c") {
+		t.Errorf("View should not include box-drawing diagram when width < 60")
+	}
+}
+
 func TestCachesModel_ActiveTabSwitches(t *testing.T) {
 	st := status.RepoStatus{Root: "/repo", Branch: "main", SHA: "x"}
 	m := NewModel(st, platform.Registry())
