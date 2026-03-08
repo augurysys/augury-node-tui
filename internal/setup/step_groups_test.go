@@ -56,3 +56,20 @@ func TestStepGroups_RecheckUpdatesStatus(t *testing.T) {
 		t.Error("Should return command to recheck")
 	}
 }
+
+func TestStepGroups_CopyReturnsClipboardMsg(t *testing.T) {
+	step := NewGroupsStep()
+	step.inNixUsers = false
+	step.state = "ready"
+
+	_, cmd := step.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}})
+
+	if cmd == nil {
+		t.Fatal("Copy should return command")
+	}
+
+	msg := cmd()
+	if _, ok := msg.(ClipboardCopiedMsg); !ok {
+		t.Errorf("Copy should return ClipboardCopiedMsg; got %T", msg)
+	}
+}

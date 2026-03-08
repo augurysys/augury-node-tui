@@ -3,6 +3,7 @@ package setup
 import (
 	"strings"
 
+	"github.com/atotto/clipboard"
 	"github.com/augurysys/augury-node-tui/internal/styles"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -109,11 +110,12 @@ type GroupCheckMsg struct {
 
 func copyToClipboard(text string) tea.Cmd {
 	return func() tea.Msg {
-		// Stub for now - will implement with atotto/clipboard in Task 9
-		return ClipboardCopiedMsg{Success: true}
+		err := clipboard.WriteAll(text)
+		return ClipboardCopiedMsg{Success: err == nil, Text: text}
 	}
 }
 
 type ClipboardCopiedMsg struct {
 	Success bool
+	Text    string
 }

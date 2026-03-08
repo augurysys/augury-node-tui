@@ -47,8 +47,8 @@ func (m *InstallStepModel) Update(msg tea.Msg) (*InstallStepModel, tea.Cmd) {
 
 		switch msg.String() {
 		case "c":
-			// Copy command to clipboard
-			return m, nil
+			cmd := "sudo ln -sf " + m.sourceBinary + " /usr/local/bin/augury-node-tui"
+			return m, copyToClipboard(cmd)
 		case "r":
 			// Re-check
 			return m, m.Init()
