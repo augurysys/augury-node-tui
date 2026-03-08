@@ -2,10 +2,11 @@
 
 ## Mandatory Nix Policy
 
-All executable actions (build, hydration, cache actions, validations) run through Nix. The TUI checks Nix readiness before allowing actions.
+All executable actions (build, hydration, cache actions, validations) require Nix readiness. The TUI checks Nix readiness before allowing actions.
 
-- **Nix ready**: Actions are enabled. Commands run via `nix develop .#dev-env --command <script>`.
+- **Nix ready**: Actions are enabled.
 - **Nix block**: When Nix is not ready, action keys are disabled. Navigation remains available. The UI shows the blocking reason and remediation.
+- **Refresh**: Press `r` to re-probe Nix readiness from the app.
 
 There is no bypass. If Nix is unavailable, actions are blocked.
 

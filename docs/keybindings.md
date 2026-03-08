@@ -11,6 +11,7 @@
 | c | Caches |
 | v | Validations |
 | o | Hints |
+| r | Refresh Nix readiness |
 | b, esc | Back to home (from sub-screens) |
 
 ## Caches screen
