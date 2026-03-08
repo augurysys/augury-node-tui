@@ -25,8 +25,13 @@ func (s *RootStep) Update(msg tea.Msg) (*RootStep, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEnter:
+			path := strings.TrimSpace(s.userInput)
+			if path == "" {
+				// Don't confirm empty paths
+				return s, nil
+			}
 			s.confirmed = true
-			return s, func() tea.Msg { return RootConfirmedMsg{Path: s.GetRootPath()} }
+			return s, func() tea.Msg { return RootConfirmedMsg{Path: path} }
 		case tea.KeyRunes:
 			s.userInput += string(msg.Runes)
 		case tea.KeyBackspace:
@@ -61,6 +66,10 @@ func (s *RootStep) View() string {
 
 func (s *RootStep) GetRootPath() string {
 	return s.userInput
+}
+
+func (s *RootStep) Confirmed() bool {
+	return s.confirmed
 }
 
 type RootConfirmedMsg struct {

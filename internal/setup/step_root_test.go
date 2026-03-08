@@ -32,9 +32,35 @@ func TestStepRoot_EnterConfirms(t *testing.T) {
 	step, cmd := step.Update(tea.KeyMsg{Type: tea.KeyEnter})
 
 	if cmd == nil {
-		t.Error("Enter should return a command")
+		t.Fatal("Enter should return a command")
 	}
 	if step.GetRootPath() != "/some/path" {
 		t.Error("Path should be preserved")
+	}
+
+	// Run the command and verify the message
+	msg := cmd()
+	confirmMsg, ok := msg.(RootConfirmedMsg)
+	if !ok {
+		t.Fatalf("Command should return RootConfirmedMsg, got %T", msg)
+	}
+	if confirmMsg.Path != "/some/path" {
+		t.Errorf("Message path should be '/some/path', got %q", confirmMsg.Path)
+	}
+}
+
+func TestStepRoot_BackspaceHandlesUTF8(t *testing.T) {
+	step := NewRootStep("")
+
+	// Type "café"
+	step, _ = step.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("café")})
+	if step.GetRootPath() != "café" {
+		t.Errorf("Should have 'café', got %q", step.GetRootPath())
+	}
+
+	// Backspace should remove 'é', not corrupt the string
+	step, _ = step.Update(tea.KeyMsg{Type: tea.KeyBackspace})
+	if step.GetRootPath() != "caf" {
+		t.Errorf("Backspace should remove 'é', got %q", step.GetRootPath())
 	}
 }
