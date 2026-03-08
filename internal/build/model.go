@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/augurysys/augury-node-tui/internal/engine"
 	"github.com/augurysys/augury-node-tui/internal/logs"
 	"github.com/augurysys/augury-node-tui/internal/nav"
 	"github.com/augurysys/augury-node-tui/internal/platform"
@@ -31,6 +32,8 @@ type Model struct {
 	Status          status.RepoStatus
 	Platforms       []platform.Platform
 	Selected        map[string]bool
+	nixState        engine.NixState
+	nixBlockedReason string
 	Mode            run.Mode
 	ForceRebuild    map[string]bool
 	Summary         *Summary
@@ -45,6 +48,7 @@ func NewModel(st status.RepoStatus, platforms []platform.Platform, selected map[
 		Status:          st,
 		Platforms:       platforms,
 		Selected:        selected,
+		nixState:        engine.ProbeNix(st.Root),
 		Mode:            run.ModeSmart,
 		ForceRebuild:    make(map[string]bool),
 		LogTab:          "full",
@@ -54,6 +58,10 @@ func NewModel(st status.RepoStatus, platforms []platform.Platform, selected map[
 		m.Selected = make(map[string]bool)
 	}
 	return m
+}
+
+func (m *Model) SetNixState(nix engine.NixState) {
+	m.nixState = nix
 }
 
 func (m *Model) Init() tea.Cmd {
@@ -95,6 +103,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		switch s {
 		case "enter":
+			m.nixBlockedReason = ""
 			return m, func() tea.Msg { return ConfirmPlanMsg{} }
 		case "f":
 			plan := m.Plan()
@@ -128,6 +137,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case CancelPlanMsg:
 		return m, func() tea.Msg { return nav.NavigateBackMsg{} }
 	case StartBuildMsg:
+		req := engine.ActionRequest{Kind: engine.KindBuildUnit, Target: engine.TargetBuild}
+		if blocked, reason := engine.IsActionBlockedByNix(req, m.nixState); blocked {
+			m.nixBlockedReason = reason
+			return m, nil
+		}
 		specs := m.RunSpecs()
 		if len(specs) == 0 {
 			return m, nil
@@ -266,6 +280,9 @@ func (m *Model) viewPreflightPlan() string {
 	plan := m.Plan()
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("Build pre-flight | mode: %s\n", plan.Mode))
+	if m.nixBlockedReason != "" {
+		b.WriteString(fmt.Sprintf("Blocked: %s\n", m.nixBlockedReason))
+	}
 	b.WriteString("m cycle mode | f toggle force rebuild | Enter confirm | Esc/b back\n")
 	b.WriteString("platforms in plan:\n")
 	var entries []PlanEntry

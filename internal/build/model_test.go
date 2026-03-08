@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/augurysys/augury-node-tui/internal/engine"
 	"github.com/augurysys/augury-node-tui/internal/nav"
 	"github.com/augurysys/augury-node-tui/internal/platform"
 	"github.com/augurysys/augury-node-tui/internal/run"
@@ -401,4 +402,47 @@ func TestLog_ViewRendersLogWhenSummaryExists(t *testing.T) {
 	if !strings.Contains(view, "--- log ---") {
 		t.Errorf("View must show log section; got %q", view)
 	}
+}
+
+func TestBuildModel_StartBuildBlockedWhenNixNotReady(t *testing.T) {
+	platforms := platform.Registry()
+	if len(platforms) == 0 {
+		t.Fatal("need at least one platform")
+	}
+	selected := map[string]bool{platforms[0].ID: true}
+	m := NewModel(status.RepoStatus{Root: "/x", Branch: "main", SHA: "x"}, platforms, selected)
+	m.SetNixState(engine.NixState{Ready: false, Reason: "nix not available"})
+
+	_, cmd := m.Update(StartBuildMsg{})
+	if cmd != nil {
+		t.Error("StartBuildMsg when nix not ready: expected no cmd, got cmd")
+	}
+	view := m.View()
+	if !strings.Contains(view, "nix not available") {
+		t.Errorf("View must show blocked reason when nix not ready; got %q", view)
+	}
+}
+
+func TestBuildModel_StartBuildAllowedWhenNixReady(t *testing.T) {
+	root := t.TempDir()
+	scriptsDevices := root + "/scripts/devices"
+	if err := os.MkdirAll(scriptsDevices, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(scriptsDevices+"/node2-build.sh", []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	platforms := platform.Registry()
+	if len(platforms) == 0 {
+		t.Fatal("need at least one platform")
+	}
+	selected := map[string]bool{platforms[0].ID: true}
+	m := NewModel(status.RepoStatus{Root: root, Branch: "main", SHA: "x"}, platforms, selected)
+	m.SetNixState(engine.NixState{Ready: true, Reason: ""})
+
+	_, cmd := m.Update(StartBuildMsg{})
+	if cmd == nil {
+		t.Fatal("StartBuildMsg when nix ready: expected cmd, got nil")
+	}
+	_ = cmd
 }

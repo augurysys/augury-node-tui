@@ -36,6 +36,7 @@ func newModel(st status.RepoStatus, platforms []platform.Platform, splashTimeout
 	c := caches.NewModel(st, platforms)
 	v := validations.NewModel(st)
 	h := hints.NewModel(st, platforms)
+	bm.SetNixState(nix)
 	c.SetNixState(nix)
 	hyd.SetNixState(nix)
 	v.SetNixState(nix)
@@ -78,8 +79,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 		}
-		if s == "r" && (m.route == "caches" || m.route == "hydrate" || m.route == "validations") {
+		if s == "r" && (m.route == "home" || m.route == "build" || m.route == "caches" || m.route == "hydrate" || m.route == "validations") {
 			m.nixState = engine.ProbeNix(m.caches.Status.Root)
+			m.build.SetNixState(m.nixState)
 			m.caches.SetNixState(m.nixState)
 			m.hydrate.SetNixState(m.nixState)
 			m.validations.SetNixState(m.nixState)

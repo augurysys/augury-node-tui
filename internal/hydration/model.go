@@ -92,8 +92,7 @@ func (m *Model) dispatchDryRun() tea.Cmd {
 		}
 		return nil
 	}
-	nix := engine.ProbeNix(m.Status.Root)
-	if blocked, _ := engine.IsActionBlockedByNix(engine.ActionRequest{Kind: engine.KindHydration, Target: engine.TargetDryRun}, nix); blocked {
+	if blocked, _ := engine.IsActionBlockedByNix(engine.ActionRequest{Kind: engine.KindHydration, Target: engine.TargetDryRun}, m.nixState); blocked {
 		for _, id := range ids {
 			m.rowStatus[id] = "blocked"
 		}

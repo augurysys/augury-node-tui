@@ -344,3 +344,80 @@ func TestNixGate_BlockedReasonSurfacedInUIState(t *testing.T) {
 		t.Errorf("view must contain blocked reason %q; got %q", blockedReason, view)
 	}
 }
+
+func TestNixGate_BuildBlockedWhenNixNotReady(t *testing.T) {
+	root := t.TempDir()
+	scriptsDevices := root + "/scripts/devices"
+	if err := os.MkdirAll(scriptsDevices, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(scriptsDevices+"/node2-build.sh", []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	nixNotReady := engine.NixState{Ready: false, Reason: "nix not available"}
+	st := status.RepoStatus{Root: root, Branch: "main", SHA: "x"}
+	platforms := platform.Registry()
+	selected := map[string]bool{}
+	for _, p := range platforms {
+		selected[p.ID] = true
+		break
+	}
+	m := NewModelWithNix(st, platforms, 2*time.Second, nixNotReady)
+	m.route = "build"
+	m.build.Selected = selected
+
+	model, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = model.(*Model)
+	if cmd != nil {
+		model, cmd = m.Update(cmd())
+		m = model.(*Model)
+	}
+	if cmd != nil {
+		model, cmd = m.Update(cmd())
+		m = model.(*Model)
+	}
+	view := m.View()
+	if cmd != nil {
+		t.Error("build start when nix not ready: expected no cmd, got cmd")
+	}
+	if !strings.Contains(view, "nix not available") {
+		t.Errorf("build view must contain blocked reason when nix not ready; got %q", view)
+	}
+}
+
+func TestNixGate_BuildAllowedWhenNixReady(t *testing.T) {
+	root := t.TempDir()
+	scriptsDevices := root + "/scripts/devices"
+	if err := os.MkdirAll(scriptsDevices, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(scriptsDevices+"/node2-build.sh", []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	nixReady := engine.NixState{Ready: true, Reason: ""}
+	st := status.RepoStatus{Root: root, Branch: "main", SHA: "x"}
+	platforms := platform.Registry()
+	selected := map[string]bool{}
+	for _, p := range platforms {
+		selected[p.ID] = true
+		break
+	}
+	m := NewModelWithNix(st, platforms, 2*time.Second, nixReady)
+	m.route = "build"
+	m.build.Selected = selected
+
+	model, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = model.(*Model)
+	if cmd != nil {
+		model, cmd = m.Update(cmd())
+		m = model.(*Model)
+	}
+	if cmd != nil {
+		model, cmd = m.Update(cmd())
+		m = model.(*Model)
+	}
+	if cmd == nil {
+		t.Error("build start when nix ready: expected cmd, got nil")
+	}
+	_ = cmd
+}
