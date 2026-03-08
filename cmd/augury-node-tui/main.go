@@ -7,12 +7,18 @@ import (
 
 	"github.com/augurysys/augury-node-tui/internal/app"
 	"github.com/augurysys/augury-node-tui/internal/platform"
+	"github.com/augurysys/augury-node-tui/internal/setup"
 	"github.com/augurysys/augury-node-tui/internal/status"
 	"github.com/augurysys/augury-node-tui/internal/workspace"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "setup" {
+		runSetupWizard()
+		return
+	}
+
 	cwd, err := os.Getwd()
 	if err != nil {
 		cwd = "."
@@ -37,5 +43,22 @@ func main() {
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "augury-node-tui: %v\n", err)
 		os.Exit(1)
+	}
+}
+
+func runSetupWizard() {
+	wizard := setup.NewWizard()
+	p := tea.NewProgram(wizard, tea.WithAltScreen())
+
+	finalModel, err := p.Run()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Setup wizard error: %v\n", err)
+		os.Exit(1)
+	}
+
+	if w, ok := finalModel.(*setup.WizardModel); ok && w.LaunchMainRequested() {
+		fmt.Println("Launching main TUI...")
+		// Could re-exec or run main TUI here
+		// For now just print message
 	}
 }
