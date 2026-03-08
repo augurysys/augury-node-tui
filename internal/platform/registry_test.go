@@ -56,6 +56,21 @@ func TestByID_Found(t *testing.T) {
 	}
 }
 
+func TestRegistry_DefensiveCopy(t *testing.T) {
+	got := Registry()
+	if len(got) == 0 {
+		t.Fatal("Registry() returned empty slice")
+	}
+	got[0].ID = "mutated"
+	got2 := Registry()
+	if got2[0].ID == "mutated" {
+		t.Error("Registry() returns backing slice; mutation leaked to internal state")
+	}
+	if got2[0].ID != "node2" {
+		t.Errorf("Registry()[0].ID = %q, want node2", got2[0].ID)
+	}
+}
+
 func TestByID_NotFound(t *testing.T) {
 	_, ok := ByID("nonexistent")
 	if ok {

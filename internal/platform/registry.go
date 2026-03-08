@@ -15,7 +15,7 @@ var platforms = []Platform{
 }
 
 func Registry() []Platform {
-	return platforms
+	return append([]Platform{}, platforms...)
 }
 
 func ByID(id string) (Platform, bool) {
