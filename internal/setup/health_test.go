@@ -1,0 +1,45 @@
+package setup
+
+import (
+	"testing"
+)
+
+func TestCheckNixInstalled(t *testing.T) {
+	result := CheckNixInstalled()
+	if !result.Available {
+		t.Skip("Nix not installed, skipping test")
+	}
+	if result.Error != nil {
+		t.Errorf("Nix installed but got error: %v", result.Error)
+	}
+}
+
+func TestCheckNixExperimentalFeatures(t *testing.T) {
+	if !CheckNixInstalled().Available {
+		t.Skip("Nix not installed")
+	}
+	result := CheckNixExperimentalFeatures()
+	if result.Error != nil {
+		t.Errorf("CheckNixExperimentalFeatures failed: %v", result.Error)
+	}
+}
+
+func TestCheckNixGroup(t *testing.T) {
+	result := CheckNixGroup()
+	if result.Error != nil {
+		t.Errorf("CheckNixGroup failed: %v", result.Error)
+	}
+}
+
+func TestCheckDaemonSocket(t *testing.T) {
+	if !CheckNixInstalled().Available {
+		t.Skip("Nix not installed")
+	}
+	result := CheckDaemonSocket()
+	if !result.Available {
+		t.Skip("Nix daemon socket not accessible")
+	}
+	if result.Error != nil {
+		t.Errorf("CheckDaemonSocket failed: %v", result.Error)
+	}
+}
