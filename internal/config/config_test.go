@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -15,7 +16,7 @@ func TestConfig_ReadWriteRoundtrip(t *testing.T) {
 		AuguryNodeRoot:   "/home/user/augury-node",
 		BinaryInstalled:  true,
 		NixVerified:      true,
-		SetupCompletedAt: "2026-03-08T19:45:00Z",
+		SetupCompletedAt:  "2026-03-08T19:45:00Z",
 		CompletedSteps:   []string{"root", "nix"},
 		SkippedSteps:     []string{"groups"},
 	}
@@ -29,16 +30,16 @@ func TestConfig_ReadWriteRoundtrip(t *testing.T) {
 		t.Fatalf("Read failed: %v", err)
 	}
 
-	if loaded.AuguryNodeRoot != cfg.AuguryNodeRoot {
-		t.Errorf("Root mismatch: got %q, want %q", loaded.AuguryNodeRoot, cfg.AuguryNodeRoot)
-	}
-	if loaded.BinaryInstalled != cfg.BinaryInstalled {
-		t.Error("BinaryInstalled mismatch")
+	if !reflect.DeepEqual(cfg, loaded) {
+		t.Errorf("config mismatch:\nwant: %+v\ngot:  %+v", cfg, loaded)
 	}
 }
 
 func TestConfig_DefaultPath(t *testing.T) {
-	path := DefaultPath()
+	path, err := DefaultPath()
+	if err != nil {
+		t.Fatalf("DefaultPath failed: %v", err)
+	}
 	if !filepath.IsAbs(path) {
 		t.Error("DefaultPath should return absolute path")
 	}

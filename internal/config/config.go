@@ -16,12 +16,12 @@ type Config struct {
 	SkippedSteps     []string `toml:"skipped_steps"`
 }
 
-func DefaultPath() string {
+func DefaultPath() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return ""
+		return "", err
 	}
-	return filepath.Join(home, ".config", "augury-node-tui", "config.toml")
+	return filepath.Join(home, ".config", "augury-node-tui", "config.toml"), nil
 }
 
 func Read(path string) (Config, error) {
