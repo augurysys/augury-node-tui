@@ -80,6 +80,13 @@ func runGit(t *testing.T, dir string, args ...string) {
 	}
 }
 
+func TestAppIntegration_FixtureValidatesDirectly(t *testing.T) {
+	fixture := fixtureRoot(t)
+	if err := workspace.ValidateRoot(fixture); err != nil {
+		t.Fatalf("fixture must pass ValidateRoot (scripts/devices, scripts/lib, pkg): %v", err)
+	}
+}
+
 func TestAppIntegration_FixtureRoot(t *testing.T) {
 	root := setupFixtureRoot(t)
 
