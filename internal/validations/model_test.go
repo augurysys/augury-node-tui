@@ -142,7 +142,7 @@ func TestValidationsModel_NotAvailableWhenRequiredScriptsMissing(t *testing.T) {
 
 	_, _ = m.Update(keyMsg("1"))
 	view := m.View()
-	if !strings.Contains(view, "not-available") && !strings.Contains(view, "not available") {
+	if !strings.Contains(view, "not-available") {
 		t.Errorf("View must show not-available when required scripts missing; got %q", view)
 	}
 }
@@ -175,7 +175,7 @@ func TestValidationsModel_ResultSummaryUpdatesAfterRun(t *testing.T) {
 	}
 	m2, _ := m.Update(msg)
 	view := m2.(*Model).View()
-	if !strings.Contains(view, "success") && !strings.Contains(view, "all") {
-		t.Errorf("View must show result summary after run; got %q", view)
+	if !strings.Contains(view, "success") {
+		t.Errorf("View must render run result status success after run; got %q", view)
 	}
 }

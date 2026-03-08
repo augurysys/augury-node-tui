@@ -163,7 +163,7 @@ func (m *Model) View() string {
 			if ok {
 				statusStr = "available"
 			} else {
-				statusStr = "not available"
+				statusStr = "not-available"
 			}
 		}
 		b.WriteString("  " + p + ": " + statusStr + "\n")
