@@ -9,7 +9,6 @@ var errorPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)^[^:]*:\s*error\s*:`),
 	regexp.MustCompile(`(?i)\berror:\s`),
 	regexp.MustCompile(`(?i)\bfatal:\s`),
-	regexp.MustCompile(`(?i)\bFatal:\s`),
 	regexp.MustCompile(`\bFAIL\b`),
 	regexp.MustCompile(`(?i)\bfailed\b`),
 	regexp.MustCompile(`(?i)\berror\b.*\bfailed\b`),
@@ -28,6 +27,12 @@ func FindFirstErrorLine(log string) (lineIndex int, ok bool) {
 }
 
 func ExtractContextAround(log string, lineIndex int, before, after int) string {
+	if before < 0 {
+		before = 0
+	}
+	if after < 0 {
+		after = 0
+	}
 	lines := strings.Split(log, "\n")
 	if lineIndex < 0 || lineIndex >= len(lines) {
 		return ""

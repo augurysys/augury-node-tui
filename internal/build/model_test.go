@@ -212,25 +212,169 @@ func TestLog_NavigationKeysScrollLogView(t *testing.T) {
 	if len(platforms) == 0 {
 		t.Fatal("need at least one platform")
 	}
-	if err := os.WriteFile(filepath.Join(logDir, platforms[0].ID+".log"), []byte("L1\nL2\nL3\nL4\nL5"), 0644); err != nil {
+	pid := platforms[0].ID
+	if err := os.WriteFile(filepath.Join(logDir, pid+".log"), []byte("L1\nL2\nL3\nL4\nL5"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	m := NewModel(status.RepoStatus{Root: tmp, Branch: "main", SHA: "x"}, platforms, map[string]bool{platforms[0].ID: true})
-	m.Summary = &Summary{Rows: []SummaryRow{{PlatformID: platforms[0].ID, Status: RowStatusFailure}}}
+	m := NewModel(status.RepoStatus{Root: tmp, Branch: "main", SHA: "x"}, platforms, map[string]bool{pid: true})
+	m.Summary = &Summary{Rows: []SummaryRow{{PlatformID: pid, Status: RowStatusFailure}}}
 	m.Focused = 0
-	off0 := m.LogScrollOffset
+	off0 := m.scrollOffsetForPlatform(pid)
 	child, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
 	m = child.(*Model)
 	child, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
 	m = child.(*Model)
-	off1 := m.LogScrollOffset
+	off1 := m.scrollOffsetForPlatform(pid)
 	if off1 <= off0 {
 		t.Errorf("j/down should increase scroll offset: was %d, now %d", off0, off1)
 	}
 	child, _ = m.Update(tea.KeyMsg{Type: tea.KeyUp})
 	m = child.(*Model)
-	off2 := m.LogScrollOffset
+	off2 := m.scrollOffsetForPlatform(pid)
 	if off2 >= off1 {
 		t.Errorf("k/up should decrease scroll offset: was %d, now %d", off1, off2)
+	}
+}
+
+func TestLog_TabKeySwitchesLikeT(t *testing.T) {
+	tmp := t.TempDir()
+	logDir := filepath.Join(tmp, "tmp", "augury-node-tui")
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	platforms := platform.Registry()
+	if len(platforms) == 0 {
+		t.Fatal("need at least one platform")
+	}
+	if err := os.WriteFile(filepath.Join(logDir, platforms[0].ID+".log"), []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	m := NewModel(status.RepoStatus{Root: tmp, Branch: "main", SHA: "x"}, platforms, map[string]bool{platforms[0].ID: true})
+	m.Summary = &Summary{Rows: []SummaryRow{{PlatformID: platforms[0].ID, Status: RowStatusFailure}}}
+	m.Focused = 0
+	child, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	m = child.(*Model)
+	if m.LogTab != "error" {
+		t.Errorf("tab key: LogTab want error, got %q", m.LogTab)
+	}
+}
+
+func TestLog_PgUpPgDownScroll(t *testing.T) {
+	tmp := t.TempDir()
+	logDir := filepath.Join(tmp, "tmp", "augury-node-tui")
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	platforms := platform.Registry()
+	if len(platforms) == 0 {
+		t.Fatal("need at least one platform")
+	}
+	pid := platforms[0].ID
+	logContent := strings.Repeat("line\n", 30)
+	if err := os.WriteFile(filepath.Join(logDir, pid+".log"), []byte(logContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+	m := NewModel(status.RepoStatus{Root: tmp, Branch: "main", SHA: "x"}, platforms, map[string]bool{pid: true})
+	m.Summary = &Summary{Rows: []SummaryRow{{PlatformID: pid, Status: RowStatusFailure}}}
+	m.Focused = 0
+	child, _ := m.Update(tea.KeyMsg{Type: tea.KeyPgDown})
+	m = child.(*Model)
+	child, _ = m.Update(tea.KeyMsg{Type: tea.KeyPgDown})
+	m = child.(*Model)
+	if m.scrollOffsetForPlatform(pid) < 10 {
+		t.Errorf("pgdown should increase scroll by 10; got %d", m.scrollOffsetForPlatform(pid))
+	}
+	child, _ = m.Update(tea.KeyMsg{Type: tea.KeyPgUp})
+	m = child.(*Model)
+	if m.scrollOffsetForPlatform(pid) >= 20 {
+		t.Errorf("pgup should decrease scroll; got %d", m.scrollOffsetForPlatform(pid))
+	}
+}
+
+func TestLog_ErrorTabShowsFirstErrorContext(t *testing.T) {
+	tmp := t.TempDir()
+	logDir := filepath.Join(tmp, "tmp", "augury-node-tui")
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	platforms := platform.Registry()
+	if len(platforms) == 0 {
+		t.Fatal("need at least one platform")
+	}
+	pid := platforms[0].ID
+	logContent := "pre1\npre2\nerror: build failed\npost1\npost2"
+	if err := os.WriteFile(filepath.Join(logDir, pid+".log"), []byte(logContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+	m := NewModel(status.RepoStatus{Root: tmp, Branch: "main", SHA: "x"}, platforms, map[string]bool{pid: true})
+	m.Summary = &Summary{Rows: []SummaryRow{{PlatformID: pid, Status: RowStatusFailure}}}
+	m.Focused = 0
+	m.LogTab = "error"
+	view := m.View()
+	if !strings.Contains(view, "error: build failed") {
+		t.Errorf("error tab view must contain first error context; got %q", view)
+	}
+	if !strings.Contains(view, "pre2") || !strings.Contains(view, "post1") {
+		t.Errorf("error tab view must contain context around error; got %q", view)
+	}
+}
+
+func TestLog_ScrollClampedToValidRange(t *testing.T) {
+	tmp := t.TempDir()
+	logDir := filepath.Join(tmp, "tmp", "augury-node-tui")
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	platforms := platform.Registry()
+	if len(platforms) == 0 {
+		t.Fatal("need at least one platform")
+	}
+	pid := platforms[0].ID
+	if err := os.WriteFile(filepath.Join(logDir, pid+".log"), []byte("L1\nL2\nL3"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	m := NewModel(status.RepoStatus{Root: tmp, Branch: "main", SHA: "x"}, platforms, map[string]bool{pid: true})
+	m.Summary = &Summary{Rows: []SummaryRow{{PlatformID: pid, Status: RowStatusFailure}}}
+	m.Focused = 0
+	child, _ := m.Update(tea.KeyMsg{Type: tea.KeyUp})
+	m = child.(*Model)
+	if m.scrollOffsetForPlatform(pid) != 0 {
+		t.Errorf("k at top must not go negative; got %d", m.scrollOffsetForPlatform(pid))
+	}
+	for i := 0; i < 20; i++ {
+		child, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+		m = child.(*Model)
+	}
+	if m.scrollOffsetForPlatform(pid) > 2 {
+		t.Errorf("scroll must clamp to max (2 lines); got %d", m.scrollOffsetForPlatform(pid))
+	}
+}
+
+func TestLog_ViewRendersLogWhenSummaryExists(t *testing.T) {
+	tmp := t.TempDir()
+	logDir := filepath.Join(tmp, "tmp", "augury-node-tui")
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	platforms := platform.Registry()
+	if len(platforms) == 0 {
+		t.Fatal("need at least one platform")
+	}
+	pid := platforms[0].ID
+	if err := os.WriteFile(filepath.Join(logDir, pid+".log"), []byte("log line 1\nlog line 2"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	m := NewModel(status.RepoStatus{Root: tmp, Branch: "main", SHA: "x"}, platforms, map[string]bool{pid: true})
+	m.Summary = &Summary{Rows: []SummaryRow{{PlatformID: pid, Status: RowStatusFailure}}}
+	m.Focused = 0
+	view := m.View()
+	if !strings.Contains(view, "Build results") {
+		t.Errorf("View must show Build results when Summary exists; got %q", view)
+	}
+	if !strings.Contains(view, "log line 1") {
+		t.Errorf("View must render log content; got %q", view)
+	}
+	if !strings.Contains(view, "--- log ---") {
+		t.Errorf("View must show log section; got %q", view)
 	}
 }

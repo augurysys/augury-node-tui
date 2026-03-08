@@ -3,9 +3,11 @@ package build
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/augurysys/augury-node-tui/internal/logs"
 	"github.com/augurysys/augury-node-tui/internal/nav"
 	"github.com/augurysys/augury-node-tui/internal/platform"
 	"github.com/augurysys/augury-node-tui/internal/run"
@@ -22,27 +24,31 @@ type BuildCompleteMsg struct {
 	Summary *Summary
 }
 
+const errorContextBefore = 5
+const errorContextAfter = 5
+
 type Model struct {
-	Status         status.RepoStatus
-	Platforms      []platform.Platform
-	Selected       map[string]bool
-	Mode           run.Mode
-	ForceRebuild   map[string]bool
-	Summary        *Summary
-	BuildCancel    context.CancelFunc
-	Focused        int
-	LogTab         string
-	LogScrollOffset int
+	Status          status.RepoStatus
+	Platforms       []platform.Platform
+	Selected        map[string]bool
+	Mode            run.Mode
+	ForceRebuild    map[string]bool
+	Summary         *Summary
+	BuildCancel     context.CancelFunc
+	Focused         int
+	LogTab          string
+	LogScrollOffset map[string]int
 }
 
 func NewModel(st status.RepoStatus, platforms []platform.Platform, selected map[string]bool) *Model {
 	m := &Model{
-		Status:         st,
-		Platforms:      platforms,
-		Selected:      selected,
-		Mode:          run.ModeSmart,
-		ForceRebuild:  make(map[string]bool),
-		LogTab:        "full",
+		Status:          st,
+		Platforms:       platforms,
+		Selected:        selected,
+		Mode:            run.ModeSmart,
+		ForceRebuild:    make(map[string]bool),
+		LogTab:          "full",
+		LogScrollOffset: make(map[string]int),
 	}
 	if m.Selected == nil {
 		m.Selected = make(map[string]bool)
@@ -59,8 +65,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		s := msg.String()
 		if m.Summary != nil && m.focusedLogPlatformID() != "" {
+			pid := m.focusedLogPlatformID()
 			switch s {
-			case "t":
+			case "t", "tab":
+				m.resetScrollForPlatform(pid)
 				if m.LogTab == "full" {
 					m.LogTab = "error"
 				} else {
@@ -68,19 +76,20 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return m, nil
 			case "e":
+				m.resetScrollForPlatform(pid)
 				m.LogTab = "error"
 				return m, nil
 			case "j", "down":
-				m.LogScrollOffset++
-				if m.LogScrollOffset < 0 {
-					m.LogScrollOffset = 0
-				}
+				m.adjustScroll(pid, 1)
 				return m, nil
 			case "k", "up":
-				m.LogScrollOffset--
-				if m.LogScrollOffset < 0 {
-					m.LogScrollOffset = 0
-				}
+				m.adjustScroll(pid, -1)
+				return m, nil
+			case "pgup":
+				m.adjustScroll(pid, -10)
+				return m, nil
+			case "pgdown":
+				m.adjustScroll(pid, 10)
 				return m, nil
 			}
 		}
@@ -156,7 +165,100 @@ func (m *Model) focusedLogPlatformID() string {
 	return m.Summary.Rows[idx].PlatformID
 }
 
+func (m *Model) logPathForPlatform(platformID string) string {
+	return filepath.Join(m.Status.Root, "tmp", "augury-node-tui", platformID+".log")
+}
+
+func (m *Model) logContentForPlatform(platformID string) string {
+	data, err := os.ReadFile(m.logPathForPlatform(platformID))
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
+func (m *Model) displayLogContent(platformID string) string {
+	raw := m.logContentForPlatform(platformID)
+	if m.LogTab == "error" {
+		lineIdx, ok := logs.FindFirstErrorLine(raw)
+		if !ok {
+			return raw
+		}
+		return logs.ExtractContextAround(raw, lineIdx, errorContextBefore, errorContextAfter)
+	}
+	return raw
+}
+
+func (m *Model) resetScrollForPlatform(platformID string) {
+	if m.LogScrollOffset == nil {
+		m.LogScrollOffset = make(map[string]int)
+	}
+	m.LogScrollOffset[platformID] = 0
+}
+
+func (m *Model) scrollOffsetForPlatform(platformID string) int {
+	if m.LogScrollOffset == nil {
+		return 0
+	}
+	return m.LogScrollOffset[platformID]
+}
+
+func (m *Model) adjustScroll(platformID string, delta int) {
+	if m.LogScrollOffset == nil {
+		m.LogScrollOffset = make(map[string]int)
+	}
+	content := m.displayLogContent(platformID)
+	lines := strings.Split(content, "\n")
+	maxScroll := 0
+	if len(lines) > 1 {
+		maxScroll = len(lines) - 1
+	}
+	cur := m.LogScrollOffset[platformID]
+	cur += delta
+	if cur < 0 {
+		cur = 0
+	}
+	if cur > maxScroll {
+		cur = maxScroll
+	}
+	m.LogScrollOffset[platformID] = cur
+}
+
 func (m *Model) View() string {
+	if m.Summary != nil && len(m.Summary.Rows) > 0 {
+		return m.viewLogResults()
+	}
+	return m.viewPreflightPlan()
+}
+
+func (m *Model) viewLogResults() string {
+	var b strings.Builder
+	pid := m.focusedLogPlatformID()
+	b.WriteString("Build results | t/tab switch full/error | e jump to error | j/k pgup/pgdown scroll | Esc/b back\n")
+	b.WriteString(fmt.Sprintf("tab: %s | platform: %s\n", m.LogTab, pid))
+	for _, r := range m.Summary.Rows {
+		cur := " "
+		if r.PlatformID == pid {
+			cur = ">"
+		}
+		b.WriteString(fmt.Sprintf(" %s %s %s\n", cur, r.PlatformID, r.Status))
+	}
+	content := m.displayLogContent(pid)
+	lines := strings.Split(content, "\n")
+	offset := m.scrollOffsetForPlatform(pid)
+	if offset >= len(lines) {
+		offset = 0
+	}
+	visible := lines[offset:]
+	b.WriteString("--- log ---\n")
+	b.WriteString(strings.Join(visible, "\n"))
+	if len(visible) == 0 && content != "" {
+		b.WriteString("(scroll up)")
+	}
+	return b.String()
+}
+
+func (m *Model) viewPreflightPlan() string {
 	plan := m.Plan()
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("Build pre-flight | mode: %s\n", plan.Mode))

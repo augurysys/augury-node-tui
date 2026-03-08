@@ -101,6 +101,13 @@ func TestParser_ContextWindowExtraction(t *testing.T) {
 			after:    0,
 			wantCont: "L5",
 		},
+		{
+			name:     "negative before after clamped to zero",
+			lineIdx:  3,
+			before:   -1,
+			after:    -2,
+			wantCont: "L3",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
