@@ -1,6 +1,7 @@
 package build
 
 import (
+	"context"
 	"path/filepath"
 
 	"github.com/augurysys/augury-node-tui/internal/platform"
@@ -13,6 +14,11 @@ type ConfirmPlanMsg struct{}
 type CancelPlanMsg struct{}
 type StartBuildMsg struct{}
 type NavigateBackMsg struct{}
+type CancelBuildMsg struct{}
+
+type BuildCompleteMsg struct {
+	Summary *Summary
+}
 
 type Model struct {
 	Status       status.RepoStatus
@@ -20,6 +26,8 @@ type Model struct {
 	Selected     map[string]bool
 	Mode         run.Mode
 	ForceRebuild map[string]bool
+	Summary      *Summary
+	BuildCancel  context.CancelFunc
 }
 
 func NewModel(st status.RepoStatus, platforms []platform.Platform, selected map[string]bool) *Model {
@@ -41,11 +49,30 @@ func (m *Model) Init() tea.Cmd {
 }
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg.(type) {
+	switch msg := msg.(type) {
 	case ConfirmPlanMsg:
 		return m, func() tea.Msg { return StartBuildMsg{} }
 	case CancelPlanMsg:
 		return m, func() tea.Msg { return NavigateBackMsg{} }
+	case StartBuildMsg:
+		specs := m.RunSpecs()
+		if len(specs) == 0 {
+			return m, nil
+		}
+		ctx, cancel := context.WithCancel(context.Background())
+		m.BuildCancel = cancel
+		return m, func() tea.Msg {
+			return BuildCompleteMsg{Summary: ExecuteSequential(ctx, specs)}
+		}
+	case BuildCompleteMsg:
+		m.Summary = msg.Summary
+		m.BuildCancel = nil
+		return m, nil
+	case CancelBuildMsg:
+		if m.BuildCancel != nil {
+			m.BuildCancel()
+		}
+		return m, nil
 	}
 	return m, nil
 }
