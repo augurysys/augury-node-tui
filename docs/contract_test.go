@@ -70,7 +70,7 @@ func TestDocsContract_DocsCacheActionKeys(t *testing.T) {
 
 func TestDocsContract_DocsLogTabErrorNavigationKeys(t *testing.T) {
 	phase23 := readFile(t, "phase2-phase3.md")
-	required := []string{"tab", "e", "full", "error"}
+	required := []string{"tab", "e", "full", "error", "j", "k"}
 	for _, r := range required {
 		if !strings.Contains(strings.ToLower(phase23), r) {
 			t.Errorf("docs must document log tab/error navigation (missing %q in phase2-phase3.md)", r)
