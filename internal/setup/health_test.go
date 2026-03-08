@@ -1,6 +1,9 @@
 package setup
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -50,5 +53,35 @@ func TestCheckDaemonSocket(t *testing.T) {
 	}
 	if result.Error != nil {
 		t.Errorf("CheckDaemonSocket failed: %v", result.Error)
+	}
+}
+
+func TestAutoFixNixConfig(t *testing.T) {
+	// Save original HOME
+	oldHome := os.Getenv("HOME")
+	defer os.Setenv("HOME", oldHome)
+
+	// Use temp dir as HOME
+	tempHome := t.TempDir()
+	os.Setenv("HOME", tempHome)
+
+	// Run auto-fix
+	if err := AutoFixNixConfig(); err != nil {
+		t.Fatalf("AutoFixNixConfig failed: %v", err)
+	}
+
+	// Check config was created
+	confPath := filepath.Join(tempHome, ".config", "nix", "nix.conf")
+	data, err := os.ReadFile(confPath)
+	if err != nil {
+		t.Fatalf("Failed to read config: %v", err)
+	}
+
+	content := string(data)
+	if !strings.Contains(content, "nix-command") {
+		t.Error("Config should contain 'nix-command'")
+	}
+	if !strings.Contains(content, "flakes") {
+		t.Error("Config should contain 'flakes'")
 	}
 }

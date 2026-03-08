@@ -121,11 +121,27 @@ func AutoFixNixConfig() error {
 	}
 	path := filepath.Join(dir, "nix.conf")
 
-	data, _ := os.ReadFile(path)
+	data, err := os.ReadFile(path)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
 	content := string(data)
+	hasNixCommand := strings.Contains(content, "nix-command")
+	hasFlakes := strings.Contains(content, "flakes")
+
+	// If both are present, nothing to do
+	if hasNixCommand && hasFlakes {
+		return nil
+	}
+
+	// Add or update experimental-features line
 	if !strings.Contains(content, "experimental-features") {
 		content += "\nexperimental-features = nix-command flakes\n"
-		return os.WriteFile(path, []byte(content), 0644)
+	} else {
+		// Update existing line (basic approach: append to end)
+		content += "\n# Updated by augury-node-tui\nexperimental-features = nix-command flakes\n"
 	}
-	return nil
+
+	return os.WriteFile(path, []byte(content), 0644)
 }

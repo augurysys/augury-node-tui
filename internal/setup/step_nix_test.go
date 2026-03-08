@@ -40,11 +40,31 @@ func TestStepNix_AutoFixExecutes(t *testing.T) {
 
 func TestStepNix_AllChecksPassAutoAdvances(t *testing.T) {
 	step := NewNixStep()
-	step.nixInstalled = true
-	step.experimentalEnabled = true
-	step.daemonOk = true
+
+	// Simulate health check with all checks passing
+	healthMsg := NixHealthCheckMsg{
+		NixInstalled:        HealthCheckResult{Available: true},
+		ExperimentalEnabled: HealthCheckResult{Available: true},
+		DaemonOk:            HealthCheckResult{Available: true},
+	}
+
+	step, cmd := step.Update(healthMsg)
 
 	if !step.AllChecksPassed() {
 		t.Error("Should report all checks passed")
+	}
+
+	if !step.Confirmed() {
+		t.Error("Should auto-confirm when all checks pass")
+	}
+
+	if cmd == nil {
+		t.Fatal("Should return command to advance")
+	}
+
+	// Verify the command returns NextStepMsg
+	msg := cmd()
+	if _, ok := msg.(NextStepMsg); !ok {
+		t.Errorf("Command should return NextStepMsg, got %T", msg)
 	}
 }

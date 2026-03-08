@@ -52,6 +52,7 @@ func (m *NixStepModel) Update(msg tea.Msg) (*NixStepModel, tea.Cmd) {
 			m.fixError = msg.Err
 			return m, nil
 		}
+		m.fixError = nil // Clear previous errors on success
 		m.experimentalEnabled = true
 		if m.AllChecksPassed() {
 			m.confirmed = true
