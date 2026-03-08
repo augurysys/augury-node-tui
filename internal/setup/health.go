@@ -6,7 +6,13 @@ import (
 	"os/user"
 	"path/filepath"
 	"strings"
+
+	"github.com/augurysys/augury-node-tui/internal/workspace"
 )
+
+func FindAuguryNodeRoot(cwd string) (string, error) {
+	return workspace.ResolveRoot("", "", cwd)
+}
 
 type HealthCheckResult struct {
 	Available bool
