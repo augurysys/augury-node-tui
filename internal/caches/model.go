@@ -1,9 +1,11 @@
 package caches
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
+	"github.com/augurysys/augury-node-tui/internal/engine"
 	"github.com/augurysys/augury-node-tui/internal/platform"
 	"github.com/augurysys/augury-node-tui/internal/status"
 	tea "github.com/charmbracelet/bubbletea"
@@ -16,27 +18,129 @@ const (
 )
 
 type Model struct {
-	Status    status.RepoStatus
-	Platforms []platform.Platform
-	activeTab int
+	Status              status.RepoStatus
+	Platforms           []platform.Platform
+	activeTab           int
+	selectedIndex       int
+	disabledReason      string
+	confirmShown        bool
+	pendingConfirmReq   engine.ActionRequest
+	rowStatus           map[string]string
 }
 
 func NewModel(st status.RepoStatus, platforms []platform.Platform) *Model {
-	return &Model{Status: st, Platforms: platforms, activeTab: TabBuildUnit}
+	return &Model{
+		Status:        st,
+		Platforms:     platforms,
+		activeTab:     TabBuildUnit,
+		selectedIndex: 0,
+		rowStatus:     make(map[string]string),
+	}
 }
 
 func (m *Model) Init() tea.Cmd {
 	return nil
 }
 
+func (m *Model) DisabledReason() string {
+	return m.disabledReason
+}
+
+func (m *Model) ConfirmShown() bool {
+	return m.confirmShown
+}
+
+func (m *Model) PendingConfirmAction() engine.ActionRequest {
+	return m.pendingConfirmReq
+}
+
+func (m *Model) selectedPlatformID() string {
+	if len(m.Platforms) == 0 {
+		return ""
+	}
+	i := m.selectedIndex
+	if i < 0 {
+		i = 0
+	}
+	if i >= len(m.Platforms) {
+		i = len(m.Platforms) - 1
+	}
+	return m.Platforms[i].ID
+}
+
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		if msg.String() == "tab" || msg.String() == "t" {
-			m.NextTab()
+		k := msg.String()
+		if m.confirmShown {
+			if k == "y" || k == "Y" {
+				m.confirmShown = false
+				req := m.pendingConfirmReq
+				m.pendingConfirmReq = engine.ActionRequest{}
+				return m, m.dispatchAction(req)
+			}
+			if k == "n" || k == "N" || k == "esc" {
+				m.confirmShown = false
+				m.pendingConfirmReq = engine.ActionRequest{}
+				return m, nil
+			}
+			return m, nil
 		}
+		m.disabledReason = ""
+		if k == "tab" || k == "t" {
+			m.NextTab()
+			return m, nil
+		}
+		platID := m.selectedPlatformID()
+		req, ok := ActionForKey(m.activeTab, k, platID)
+		if !ok {
+			return m, nil
+		}
+		cap := engine.ResolveCapability(m.Status.Root, req)
+		if !cap.Available {
+			m.disabledReason = cap.Reason
+			return m, nil
+		}
+		nix := engine.ProbeNix(m.Status.Root)
+		if blocked, reason := engine.IsActionBlockedByNix(req, nix); blocked {
+			m.disabledReason = reason
+			return m, nil
+		}
+		if IsDestructive(req) {
+			m.confirmShown = true
+			m.pendingConfirmReq = req
+			return m, nil
+		}
+		return m, m.dispatchAction(req)
+	case jobResultMsg:
+		m.handleJobResult(msg.Job, msg.Request)
+		return m, nil
 	}
 	return m, nil
+}
+
+func (m *Model) dispatchAction(req engine.ActionRequest) tea.Cmd {
+	root := m.Status.Root
+	return func() tea.Msg {
+		job := engine.ExecuteAction(context.Background(), root, req)
+		return jobResultMsg{Job: job, Request: req}
+	}
+}
+
+type jobResultMsg struct {
+	Job     engine.Job
+	Request engine.ActionRequest
+}
+
+func (m *Model) handleJobResult(job engine.Job, req engine.ActionRequest) {
+	key := req.PlatformID
+	if key == "" {
+		key = "global"
+	}
+	m.rowStatus[key] = string(job.State)
+	if job.Reason != "" {
+		m.rowStatus[key] += ": " + job.Reason
+	}
 }
 
 func (m *Model) ActiveTab() int {
@@ -58,15 +162,28 @@ func (m *Model) NextTab() {
 	m.activeTab = (m.activeTab + 1) % TabCount
 }
 
+func (m *Model) RowStatus(platformID string) string {
+	return m.rowStatus[platformID]
+}
+
 func (m *Model) View() string {
 	var b strings.Builder
-	b.WriteString("Caches (read-only)\n")
+	b.WriteString("Caches\n")
 	b.WriteString(fmt.Sprintf("Tab: %s\n", m.ActiveTabName()))
-	b.WriteString("Build-unit cache: submodules fingerprint + local/remote presence\n")
-	b.WriteString("(no destructive actions in MVP)\n")
-	b.WriteString("Platform cache: Buildroot, Yocto, Go, Cargo\n")
+	if m.disabledReason != "" {
+		b.WriteString(fmt.Sprintf("Disabled: %s\n", m.disabledReason))
+	}
+	if m.confirmShown {
+		b.WriteString("Confirm destructive action? (y/n)\n")
+		return b.String()
+	}
+	b.WriteString("Build-unit: B=build R=pull D=delete | Platform: P=pull U=push X=clean\n")
 	for _, p := range m.Platforms {
-		b.WriteString(fmt.Sprintf("  %s -> %s\n", p.ID, p.OutputRelPath))
+		line := fmt.Sprintf("  %s -> %s", p.ID, p.OutputRelPath)
+		if s := m.rowStatus[p.ID]; s != "" {
+			line += " [" + s + "]"
+		}
+		b.WriteString(line + "\n")
 	}
 	return b.String()
 }
