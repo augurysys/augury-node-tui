@@ -73,6 +73,53 @@ func TestReadAt_ReturnsUnavailableWhenIndexAbsent(t *testing.T) {
 	}
 }
 
+func TestParseIndex_AliasMappingMoxaLowRpmResolvesFromMoxaUc3100Ulrpm(t *testing.T) {
+	dir := t.TempDir()
+	dd := filepath.Join(dir, "developer-downloads")
+	if err := os.MkdirAll(dd, 0755); err != nil {
+		t.Fatal(err)
+	}
+	content := `{"platforms":[{"name":"moxa-uc3100-ulrpm","enabled":true,"source":"hydrated"}]}`
+	if err := os.WriteFile(filepath.Join(dd, "index.json"), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	idx, err := ReadAt(dir)
+	if err != nil {
+		t.Fatalf("ReadAt: %v", err)
+	}
+	if idx == nil {
+		t.Fatal("index must not be nil")
+	}
+	if got := idx.SourceState("moxa-low-rpm"); got != SourceHydrated {
+		t.Errorf("moxa-low-rpm should resolve from moxa-uc3100-ulrpm; want hydrated, got %q", got)
+	}
+}
+
+func TestParseIndex_EmptyNameEntriesIgnored(t *testing.T) {
+	dir := t.TempDir()
+	dd := filepath.Join(dir, "developer-downloads")
+	if err := os.MkdirAll(dd, 0755); err != nil {
+		t.Fatal(err)
+	}
+	content := `{"platforms":[{"name":"","enabled":true,"source":"built"},{"name":"node2","enabled":true,"source":"hydrated"}]}`
+	if err := os.WriteFile(filepath.Join(dd, "index.json"), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	idx, err := ReadAt(dir)
+	if err != nil {
+		t.Fatalf("ReadAt: %v", err)
+	}
+	if idx == nil {
+		t.Fatal("index must not be nil")
+	}
+	if got := idx.SourceState("node2"); got != SourceHydrated {
+		t.Errorf("node2 should be hydrated; got %q", got)
+	}
+	if got := idx.SourceState(""); got != SourceMissing {
+		t.Errorf("empty name should not be stored; want missing, got %q", got)
+	}
+}
+
 func TestReadAt_ResolvesPathUnderDeveloperDownloads(t *testing.T) {
 	dir := t.TempDir()
 	dd := filepath.Join(dir, "developer-downloads")

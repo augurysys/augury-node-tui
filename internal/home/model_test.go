@@ -220,3 +220,44 @@ func TestDeveloperDownloads_ViewShowsUnavailableWhenIndexAbsent(t *testing.T) {
 	}
 }
 
+func TestDeveloperDownloads_ViewShowsUnavailableWhenParseFails(t *testing.T) {
+	dir := t.TempDir()
+	dd := filepath.Join(dir, "developer-downloads")
+	if err := os.MkdirAll(dd, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dd, "index.json"), []byte("not valid json"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	st := status.RepoStatus{Root: dir, Branch: "main", SHA: "x"}
+	m := NewModel(st, platform.Registry())
+	if m.DeveloperDownloadsErr == nil {
+		t.Error("DeveloperDownloadsErr should be set when parse fails")
+	}
+	view := m.View()
+	if !strings.Contains(view, "unavailable") {
+		t.Errorf("View should contain unavailable when parse fails; got %q", view)
+	}
+}
+
+func TestDeveloperDownloads_AliasMoxaLowRpmResolvesFromIndex(t *testing.T) {
+	dir := t.TempDir()
+	dd := filepath.Join(dir, "developer-downloads")
+	if err := os.MkdirAll(dd, 0755); err != nil {
+		t.Fatal(err)
+	}
+	content := `{"platforms":[{"name":"moxa-uc3100-ulrpm","enabled":true,"source":"built"}]}`
+	if err := os.WriteFile(filepath.Join(dd, "index.json"), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	st := status.RepoStatus{Root: dir, Branch: "main", SHA: "x"}
+	m := NewModel(st, platform.Registry())
+	view := m.View()
+	if !strings.Contains(view, "moxa-low-rpm") {
+		t.Skip("platform registry may not include moxa-low-rpm")
+	}
+	if !strings.Contains(view, "built") {
+		t.Errorf("View should show built for moxa-low-rpm via alias; got %q", view)
+	}
+}
+

@@ -4,9 +4,14 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const indexFilename = "developer-downloads/index.json"
+
+var platformIDToIndexKey = map[string]string{
+	"moxa-low-rpm": "moxa-uc3100-ulrpm",
+}
 
 type SourceState string
 
@@ -47,6 +52,9 @@ func ReadAt(root string) (*Index, error) {
 	}
 	idx := &Index{sources: make(map[string]SourceState)}
 	for _, p := range raw.Platforms {
+		if strings.TrimSpace(p.Name) == "" {
+			continue
+		}
 		switch p.Source {
 		case "built":
 			idx.sources[p.Name] = SourceBuilt
@@ -65,9 +73,13 @@ func (idx *Index) SourceState(platformID string) SourceState {
 	if idx == nil {
 		return ""
 	}
-	s, ok := idx.sources[platformID]
-	if !ok {
-		return SourceMissing
+	if s, ok := idx.sources[platformID]; ok {
+		return s
 	}
-	return s
+	if alias, ok := platformIDToIndexKey[platformID]; ok {
+		if s, ok := idx.sources[alias]; ok {
+			return s
+		}
+	}
+	return SourceMissing
 }

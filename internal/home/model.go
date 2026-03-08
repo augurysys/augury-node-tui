@@ -12,11 +12,12 @@ import (
 )
 
 type Model struct {
-	Status             status.RepoStatus
-	Platforms          []platform.Platform
-	Selected           map[string]bool
-	Focused            int
-	DeveloperDownloads *developerdownloads.Index
+	Status                 status.RepoStatus
+	Platforms              []platform.Platform
+	Selected               map[string]bool
+	Focused                int
+	DeveloperDownloads     *developerdownloads.Index
+	DeveloperDownloadsErr  error
 }
 
 func NewModel(st status.RepoStatus, platforms []platform.Platform) *Model {
@@ -24,8 +25,8 @@ func NewModel(st status.RepoStatus, platforms []platform.Platform) *Model {
 	for _, p := range platforms {
 		sel[p.ID] = false
 	}
-	idx, _ := developerdownloads.ReadAt(st.Root)
-	return &Model{Status: st, Platforms: platforms, Selected: sel, DeveloperDownloads: idx}
+	idx, err := developerdownloads.ReadAt(st.Root)
+	return &Model{Status: st, Platforms: platforms, Selected: sel, DeveloperDownloads: idx, DeveloperDownloadsErr: err}
 }
 
 func (m *Model) Init() tea.Cmd {
