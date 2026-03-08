@@ -7,7 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-type timeoutMsg struct{}
+type TimeoutMsg struct{}
 
 type ReplayMsg struct{}
 
@@ -24,7 +24,7 @@ func NewSplashModel(timeout time.Duration) *SplashModel {
 
 func (m *SplashModel) Init() tea.Cmd {
 	return tea.Tick(m.Timeout, func(t time.Time) tea.Msg {
-		return timeoutMsg{}
+		return TimeoutMsg{}
 	})
 }
 
@@ -43,7 +43,7 @@ func (m *SplashModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.Width = msg.Width
 		m.Height = msg.Height
 		return m, nil
-	case timeoutMsg:
+	case TimeoutMsg:
 		m.Dismissed = true
 		return m, nil
 	case ReplayMsg:

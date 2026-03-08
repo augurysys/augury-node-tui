@@ -30,7 +30,7 @@ func TestSplashDismissesOnKeyEvent(t *testing.T) {
 
 func TestSplashAutoDismissesAfterTimeout(t *testing.T) {
 	m := NewSplashModel(10 * time.Millisecond)
-	model, cmd := m.Update(timeoutMsg{})
+	model, cmd := m.Update(TimeoutMsg{})
 	_ = cmd
 	m = model.(*SplashModel)
 	if !m.Dismissed {
