@@ -113,6 +113,42 @@ func TestExecution_CancellationMarksCurrentAndRemainingAppropriately(t *testing.
 	}
 }
 
+func TestExecution_NextToRunSpecClassifiedFromExecuteNotSkipped(t *testing.T) {
+	tmp := t.TempDir()
+	root := filepath.Join(tmp, "repo")
+	if err := os.MkdirAll(root, 0755); err != nil {
+		t.Fatal(err)
+	}
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	specs := []run.RunSpec{
+		{Name: "first", Root: absRoot, Mode: run.ModeSmart, Command: "sh", Args: []string{"-c", "exit 0"}},
+		{Name: "second", Root: absRoot, Mode: run.ModeSmart, Command: "sh", Args: []string{"-c", "exit 0"}},
+		{Name: "third", Root: absRoot, Mode: run.ModeSmart, Command: "sh", Args: []string{"-c", "exit 0"}},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	summary := ExecuteSequential(ctx, specs)
+
+	if len(summary.Rows) != 3 {
+		t.Fatalf("summary rows = %d, want 3", len(summary.Rows))
+	}
+	if summary.Rows[0].Status != RowStatusCancelled {
+		t.Errorf("first row (next-to-run when ctx already cancelled) must be classified from run.Execute as cancelled, not skipped; got %q", summary.Rows[0].Status)
+	}
+	if summary.Rows[1].Status != RowStatusSkipped {
+		t.Errorf("second row (remaining after first cancelled) status = %q, want skipped", summary.Rows[1].Status)
+	}
+	if summary.Rows[2].Status != RowStatusSkipped {
+		t.Errorf("third row (remaining after first cancelled) status = %q, want skipped", summary.Rows[2].Status)
+	}
+}
+
 func TestExecution_SummaryRowStatusesIncludeSuccessFailureSkippedCancelled(t *testing.T) {
 	tmp := t.TempDir()
 	root := filepath.Join(tmp, "repo")

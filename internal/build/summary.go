@@ -27,12 +27,6 @@ type Summary struct {
 func ExecuteSequential(ctx context.Context, specs []run.RunSpec) *Summary {
 	s := &Summary{Rows: make([]SummaryRow, 0, len(specs))}
 	for _, spec := range specs {
-		select {
-		case <-ctx.Done():
-			s.Rows = append(s.Rows, SummaryRow{PlatformID: spec.Name, Status: RowStatusSkipped})
-			continue
-		default:
-		}
 		result := run.Execute(ctx, spec)
 		switch result.Status {
 		case "success":
