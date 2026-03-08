@@ -36,9 +36,6 @@ func TestCheckDaemonSocket(t *testing.T) {
 		t.Skip("Nix not installed")
 	}
 	result := CheckDaemonSocket()
-	if !result.Available {
-		t.Skip("Nix daemon socket not accessible")
-	}
 	if result.Error != nil {
 		t.Errorf("CheckDaemonSocket failed: %v", result.Error)
 	}
