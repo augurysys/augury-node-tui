@@ -23,23 +23,26 @@ type BuildCompleteMsg struct {
 }
 
 type Model struct {
-	Status       status.RepoStatus
-	Platforms    []platform.Platform
-	Selected     map[string]bool
-	Mode         run.Mode
-	ForceRebuild map[string]bool
-	Summary      *Summary
-	BuildCancel  context.CancelFunc
-	Focused      int
+	Status         status.RepoStatus
+	Platforms      []platform.Platform
+	Selected       map[string]bool
+	Mode           run.Mode
+	ForceRebuild   map[string]bool
+	Summary        *Summary
+	BuildCancel    context.CancelFunc
+	Focused        int
+	LogTab         string
+	LogScrollOffset int
 }
 
 func NewModel(st status.RepoStatus, platforms []platform.Platform, selected map[string]bool) *Model {
 	m := &Model{
-		Status:       st,
-		Platforms:    platforms,
-		Selected:     selected,
-		Mode:         run.ModeSmart,
-		ForceRebuild: make(map[string]bool),
+		Status:         st,
+		Platforms:      platforms,
+		Selected:      selected,
+		Mode:          run.ModeSmart,
+		ForceRebuild:  make(map[string]bool),
+		LogTab:        "full",
 	}
 	if m.Selected == nil {
 		m.Selected = make(map[string]bool)
@@ -55,6 +58,32 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		s := msg.String()
+		if m.Summary != nil && m.focusedLogPlatformID() != "" {
+			switch s {
+			case "t":
+				if m.LogTab == "full" {
+					m.LogTab = "error"
+				} else {
+					m.LogTab = "full"
+				}
+				return m, nil
+			case "e":
+				m.LogTab = "error"
+				return m, nil
+			case "j", "down":
+				m.LogScrollOffset++
+				if m.LogScrollOffset < 0 {
+					m.LogScrollOffset = 0
+				}
+				return m, nil
+			case "k", "up":
+				m.LogScrollOffset--
+				if m.LogScrollOffset < 0 {
+					m.LogScrollOffset = 0
+				}
+				return m, nil
+			}
+		}
 		switch s {
 		case "enter":
 			return m, func() tea.Msg { return ConfirmPlanMsg{} }
@@ -117,6 +146,14 @@ func (m *Model) focusedIndex(n int) int {
 		return 0
 	}
 	return (m.Focused%n + n) % n
+}
+
+func (m *Model) focusedLogPlatformID() string {
+	if m.Summary == nil || len(m.Summary.Rows) == 0 {
+		return ""
+	}
+	idx := m.focusedIndex(len(m.Summary.Rows))
+	return m.Summary.Rows[idx].PlatformID
 }
 
 func (m *Model) View() string {

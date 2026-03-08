@@ -1,6 +1,8 @@
 package build
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -138,5 +140,97 @@ func TestBuildModel_EnterEmitsConfirmPlanMsg(t *testing.T) {
 	msg := cmd()
 	if _, ok := msg.(ConfirmPlanMsg); !ok {
 		t.Errorf("Enter must produce ConfirmPlanMsg; got %T", msg)
+	}
+}
+
+func TestLog_TabSwitchTogglesFullAndError(t *testing.T) {
+	tmp := t.TempDir()
+	root := tmp
+	logDir := filepath.Join(root, "tmp", "augury-node-tui")
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	platforms := platform.Registry()
+	if len(platforms) == 0 {
+		t.Fatal("need at least one platform")
+	}
+	logPath := filepath.Join(logDir, platforms[0].ID+".log")
+	if err := os.WriteFile(logPath, []byte("line1\nerror: failed\nline3"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	selected := map[string]bool{platforms[0].ID: true}
+	m := NewModel(status.RepoStatus{Root: root, Branch: "main", SHA: "x"}, platforms, selected)
+	m.Summary = &Summary{
+		Rows: []SummaryRow{{PlatformID: platforms[0].ID, Status: RowStatusFailure}},
+	}
+	m.Focused = 0
+	if m.LogTab != "full" {
+		t.Errorf("initial LogTab want full, got %q", m.LogTab)
+	}
+	child, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
+	m = child.(*Model)
+	if m.LogTab != "error" {
+		t.Errorf("after t: LogTab want error, got %q", m.LogTab)
+	}
+	child, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
+	m = child.(*Model)
+	if m.LogTab != "full" {
+		t.Errorf("after t again: LogTab want full, got %q", m.LogTab)
+	}
+}
+
+func TestLog_JumpToErrorSwitchesToErrorTab(t *testing.T) {
+	tmp := t.TempDir()
+	logDir := filepath.Join(tmp, "tmp", "augury-node-tui")
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	platforms := platform.Registry()
+	if len(platforms) == 0 {
+		t.Fatal("need at least one platform")
+	}
+	if err := os.WriteFile(filepath.Join(logDir, platforms[0].ID+".log"), []byte("a\nerror: x\nb"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	m := NewModel(status.RepoStatus{Root: tmp, Branch: "main", SHA: "x"}, platforms, map[string]bool{platforms[0].ID: true})
+	m.Summary = &Summary{Rows: []SummaryRow{{PlatformID: platforms[0].ID, Status: RowStatusFailure}}}
+	m.Focused = 0
+	child, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("e")})
+	m = child.(*Model)
+	if m.LogTab != "error" {
+		t.Errorf("after e: LogTab want error, got %q", m.LogTab)
+	}
+}
+
+func TestLog_NavigationKeysScrollLogView(t *testing.T) {
+	tmp := t.TempDir()
+	logDir := filepath.Join(tmp, "tmp", "augury-node-tui")
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	platforms := platform.Registry()
+	if len(platforms) == 0 {
+		t.Fatal("need at least one platform")
+	}
+	if err := os.WriteFile(filepath.Join(logDir, platforms[0].ID+".log"), []byte("L1\nL2\nL3\nL4\nL5"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	m := NewModel(status.RepoStatus{Root: tmp, Branch: "main", SHA: "x"}, platforms, map[string]bool{platforms[0].ID: true})
+	m.Summary = &Summary{Rows: []SummaryRow{{PlatformID: platforms[0].ID, Status: RowStatusFailure}}}
+	m.Focused = 0
+	off0 := m.LogScrollOffset
+	child, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	m = child.(*Model)
+	child, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	m = child.(*Model)
+	off1 := m.LogScrollOffset
+	if off1 <= off0 {
+		t.Errorf("j/down should increase scroll offset: was %d, now %d", off0, off1)
+	}
+	child, _ = m.Update(tea.KeyMsg{Type: tea.KeyUp})
+	m = child.(*Model)
+	off2 := m.LogScrollOffset
+	if off2 >= off1 {
+		t.Errorf("k/up should decrease scroll offset: was %d, now %d", off1, off2)
 	}
 }
