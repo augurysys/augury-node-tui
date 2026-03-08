@@ -1,6 +1,7 @@
 package hydration
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -40,6 +41,15 @@ func TestHydrationModel_DryRunRowsForSelectedPlatforms(t *testing.T) {
 func TestHydrationModel_CommandDispatchReturnsRunSpec(t *testing.T) {
 	tmp := t.TempDir()
 	root := filepath.Join(tmp, "repo")
+	scriptsDir := filepath.Join(root, "scripts")
+	if err := os.MkdirAll(scriptsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	hydratePath := filepath.Join(scriptsDir, "hydrate")
+	if err := os.WriteFile(hydratePath, []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
 	platforms := platform.Registry()
 	if len(platforms) == 0 {
 		t.Fatal("need at least one platform")
@@ -51,9 +61,8 @@ func TestHydrationModel_CommandDispatchReturnsRunSpec(t *testing.T) {
 	spec, ok := m.CommandDispatch(platforms[0].ID)
 
 	if !ok {
-		t.Skip("CommandDispatch returns not available when script missing; adapter-only")
+		t.Fatal("CommandDispatch must return ok=true when scripts/hydrate exists")
 	}
-	_ = spec
 	if spec.Root != root {
 		t.Errorf("spec.Root = %q, want %q", spec.Root, root)
 	}
@@ -76,10 +85,10 @@ func TestHydrationModel_NotAvailableWhenScriptMissing(t *testing.T) {
 	_, ok := m.CommandDispatch(platforms[0].ID)
 
 	if ok {
-		t.Skip("when script exists, ok=true; when missing, ok=false")
+		t.Fatal("CommandDispatch must return ok=false when scripts/hydrate is missing")
 	}
 	view := m.View()
 	if !strings.Contains(view, "not available") && !strings.Contains(view, "unavailable") {
-		t.Logf("View when unavailable should mention not available; got %q", view)
+		t.Errorf("View when unavailable must mention not available; got %q", view)
 	}
 }
