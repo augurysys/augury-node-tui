@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
 )
 
 const (
@@ -67,57 +66,17 @@ func Execute(ctx context.Context, spec RunSpec) Result {
 		cmd.Env = os.Environ()
 	}
 
-	stdoutPipe, err := cmd.StdoutPipe()
-	if err != nil {
-		return Result{Status: "error", ExitCode: -1}
-	}
-	stderrPipe, err := cmd.StderrPipe()
-	if err != nil {
-		return Result{Status: "error", ExitCode: -1}
-	}
-
-	if err := cmd.Start(); err != nil {
-		if ctx.Err() != nil {
-			return Result{Status: "cancelled"}
-		}
-		return Result{Status: "error", ExitCode: -1}
-	}
-
 	var stdoutBuf, stderrBuf strings.Builder
-	var teeErr error
-	var teeMu sync.Mutex
-	var wg sync.WaitGroup
-	tee := func(r io.Reader, buf *strings.Builder, log io.Writer) {
-		defer wg.Done()
-		if err := streamTo(r, buf, log); err != nil {
-			teeMu.Lock()
-			if teeErr == nil {
-				teeErr = err
-			}
-			teeMu.Unlock()
-		}
-	}
-	wg.Add(2)
-	go tee(stdoutPipe, &stdoutBuf, logFile)
-	go tee(stderrPipe, &stderrBuf, logFile)
+	cmd.Stdout = io.MultiWriter(&stdoutBuf, logFile)
+	cmd.Stderr = io.MultiWriter(&stderrBuf, logFile)
 
-	err = cmd.Wait()
-	wg.Wait()
+	err = cmd.Run()
 
 	if ctx.Err() != nil {
 		return Result{
 			Status: "cancelled",
 			Stdout: stdoutBuf.String(),
 			Stderr: stderrBuf.String(),
-		}
-	}
-
-	if teeErr != nil {
-		return Result{
-			Status:   "error",
-			Stdout:   stdoutBuf.String(),
-			Stderr:   stderrBuf.String() + "\n" + teeErr.Error(),
-			ExitCode: -1,
 		}
 	}
 
