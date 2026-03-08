@@ -4,6 +4,7 @@ import (
 	"context"
 	"path/filepath"
 
+	"github.com/augurysys/augury-node-tui/internal/nav"
 	"github.com/augurysys/augury-node-tui/internal/platform"
 	"github.com/augurysys/augury-node-tui/internal/run"
 	"github.com/augurysys/augury-node-tui/internal/status"
@@ -13,7 +14,6 @@ import (
 type ConfirmPlanMsg struct{}
 type CancelPlanMsg struct{}
 type StartBuildMsg struct{}
-type NavigateBackMsg struct{}
 type CancelBuildMsg struct{}
 
 type BuildCompleteMsg struct {
@@ -53,7 +53,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ConfirmPlanMsg:
 		return m, func() tea.Msg { return StartBuildMsg{} }
 	case CancelPlanMsg:
-		return m, func() tea.Msg { return NavigateBackMsg{} }
+		return m, func() tea.Msg { return nav.NavigateBackMsg{} }
 	case StartBuildMsg:
 		specs := m.RunSpecs()
 		if len(specs) == 0 {

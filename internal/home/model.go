@@ -4,16 +4,11 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/augurysys/augury-node-tui/internal/nav"
 	"github.com/augurysys/augury-node-tui/internal/platform"
 	"github.com/augurysys/augury-node-tui/internal/status"
 	tea "github.com/charmbracelet/bubbletea"
 )
-
-type ReplaySplashMsg struct{}
-
-type NavigateMsg struct {
-	Route string
-}
 
 type Model struct {
 	Status    status.RepoStatus
@@ -39,19 +34,19 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		s := msg.String()
 		switch s {
 		case "a":
-			return m, func() tea.Msg { return ReplaySplashMsg{} }
+			return m, func() tea.Msg { return nav.ReplaySplashMsg{} }
 		case "q":
 			return m, tea.Quit
 		case "b":
-			return m, func() tea.Msg { return NavigateMsg{Route: "build"} }
+			return m, func() tea.Msg { return nav.NavigateMsg{Route: "build"} }
 		case "h":
-			return m, func() tea.Msg { return NavigateMsg{Route: "hydrate"} }
+			return m, func() tea.Msg { return nav.NavigateMsg{Route: "hydrate"} }
 		case "c":
-			return m, func() tea.Msg { return NavigateMsg{Route: "caches"} }
+			return m, func() tea.Msg { return nav.NavigateMsg{Route: "caches"} }
 		case "v":
-			return m, func() tea.Msg { return NavigateMsg{Route: "validations"} }
+			return m, func() tea.Msg { return nav.NavigateMsg{Route: "validations"} }
 		case "o":
-			return m, func() tea.Msg { return NavigateMsg{Route: "hints"} }
+			return m, func() tea.Msg { return nav.NavigateMsg{Route: "hints"} }
 		}
 	}
 	return m, nil

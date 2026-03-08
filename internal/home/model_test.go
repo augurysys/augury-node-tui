@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/augurysys/augury-node-tui/internal/nav"
 	"github.com/augurysys/augury-node-tui/internal/platform"
 	"github.com/augurysys/augury-node-tui/internal/status"
 	tea "github.com/charmbracelet/bubbletea"
@@ -77,7 +78,7 @@ func TestHomeModel_KeyA_EmitsReplaySplash(t *testing.T) {
 		t.Fatal("pressing 'a' must return a cmd")
 	}
 	msg := cmd()
-	if _, ok := msg.(ReplaySplashMsg); !ok {
+	if _, ok := msg.(nav.ReplaySplashMsg); !ok {
 		t.Errorf("cmd must produce ReplaySplashMsg; got %T", msg)
 	}
 }
@@ -101,7 +102,7 @@ func TestHomeModel_KeyB_EmitsNavigate(t *testing.T) {
 		t.Fatal("pressing 'b' must return a cmd")
 	}
 	msg := cmd()
-	nm, ok := msg.(NavigateMsg)
+	nm, ok := msg.(nav.NavigateMsg)
 	if !ok || nm.Route != "build" {
 		t.Errorf("cmd must produce NavigateMsg{Route: build}; got %T %v", msg, msg)
 	}
@@ -114,7 +115,7 @@ func TestHomeModel_KeyH_EmitsNavigate(t *testing.T) {
 		t.Fatal("pressing 'h' must return a cmd")
 	}
 	msg := cmd()
-	nm, ok := msg.(NavigateMsg)
+	nm, ok := msg.(nav.NavigateMsg)
 	if !ok || nm.Route != "hydrate" {
 		t.Errorf("cmd must produce NavigateMsg{Route: hydrate}; got %T", msg)
 	}
@@ -127,7 +128,7 @@ func TestHomeModel_KeyC_EmitsNavigate(t *testing.T) {
 		t.Fatal("pressing 'c' must return a cmd")
 	}
 	msg := cmd()
-	nm, ok := msg.(NavigateMsg)
+	nm, ok := msg.(nav.NavigateMsg)
 	if !ok || nm.Route != "caches" {
 		t.Errorf("cmd must produce NavigateMsg{Route: caches}; got %T", msg)
 	}
@@ -140,7 +141,7 @@ func TestHomeModel_KeyV_EmitsNavigate(t *testing.T) {
 		t.Fatal("pressing 'v' must return a cmd")
 	}
 	msg := cmd()
-	nm, ok := msg.(NavigateMsg)
+	nm, ok := msg.(nav.NavigateMsg)
 	if !ok || nm.Route != "validations" {
 		t.Errorf("cmd must produce NavigateMsg{Route: validations}; got %T", msg)
 	}
@@ -153,7 +154,7 @@ func TestHomeModel_KeyO_EmitsNavigate(t *testing.T) {
 		t.Fatal("pressing 'o' must return a cmd")
 	}
 	msg := cmd()
-	nm, ok := msg.(NavigateMsg)
+	nm, ok := msg.(nav.NavigateMsg)
 	if !ok || nm.Route != "hints" {
 		t.Errorf("cmd must produce NavigateMsg{Route: hints}; got %T", msg)
 	}

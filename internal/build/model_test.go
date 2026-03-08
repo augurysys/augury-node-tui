@@ -3,6 +3,7 @@ package build
 import (
 	"testing"
 
+	"github.com/augurysys/augury-node-tui/internal/nav"
 	"github.com/augurysys/augury-node-tui/internal/platform"
 	"github.com/augurysys/augury-node-tui/internal/run"
 	"github.com/augurysys/augury-node-tui/internal/status"
@@ -53,7 +54,7 @@ func TestBuildModel_CancelEmitsCancelMsg(t *testing.T) {
 		t.Fatal("CancelPlanMsg must return a cmd")
 	}
 	msg := cmd()
-	if _, ok := msg.(NavigateBackMsg); !ok {
+	if _, ok := msg.(nav.NavigateBackMsg); !ok {
 		t.Errorf("cancel must produce NavigateBackMsg; got %T", msg)
 	}
 }

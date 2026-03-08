@@ -138,6 +138,26 @@ func TestApp_ReturnFromCaches_GoesToHome(t *testing.T) {
 	}
 }
 
+func TestApp_ReturnFromValidations_GoesToHome(t *testing.T) {
+	m := NewModel(stubStatus(), platform.Registry(), 2*time.Second)
+	m.route = "validations"
+	model, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("b")})
+	m = model.(*Model)
+	if m.Route() != "home" {
+		t.Errorf("b from validations should go to home; got %q", m.Route())
+	}
+}
+
+func TestApp_ReturnFromHints_GoesToHome(t *testing.T) {
+	m := NewModel(stubStatus(), platform.Registry(), 2*time.Second)
+	m.route = "hints"
+	model, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("b")})
+	m = model.(*Model)
+	if m.Route() != "home" {
+		t.Errorf("b from hints should go to home; got %q", m.Route())
+	}
+}
+
 func TestApp_HomeKeyA_ReplaysSplash(t *testing.T) {
 	m := NewModel(stubStatus(), platform.Registry(), 2*time.Second)
 	m.route = "home"

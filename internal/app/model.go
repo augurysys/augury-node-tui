@@ -8,6 +8,7 @@ import (
 	"github.com/augurysys/augury-node-tui/internal/home"
 	"github.com/augurysys/augury-node-tui/internal/hints"
 	"github.com/augurysys/augury-node-tui/internal/hydration"
+	"github.com/augurysys/augury-node-tui/internal/nav"
 	"github.com/augurysys/augury-node-tui/internal/platform"
 	"github.com/augurysys/augury-node-tui/internal/status"
 	"github.com/augurysys/augury-node-tui/internal/ui"
@@ -61,14 +62,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.route = "home"
 			return m, nil
 		}
-	case home.NavigateMsg:
+	case nav.NavigateMsg:
 		m.route = msg.Route
 		return m, nil
-	case home.ReplaySplashMsg:
+	case nav.ReplaySplashMsg:
 		m.route = "splash"
 		m.splash = ui.NewSplashModel(m.splash.Timeout)
 		return m, m.splash.Init()
-	case build.NavigateBackMsg:
+	case nav.NavigateBackMsg:
 		m.route = "home"
 		return m, nil
 	case tea.QuitMsg:
