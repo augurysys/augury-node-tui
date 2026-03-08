@@ -13,6 +13,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+const keyLegend = "D dry-run | H hydrate | b/esc back"
+
 type DryRunRow struct {
 	PlatformID    string
 	LocalPresent  bool
@@ -42,7 +44,7 @@ func (m *Model) Init() tea.Cmd {
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		k := msg.String()
+		k := strings.ToUpper(msg.String())
 		if k == "D" {
 			return m, m.dispatchDryRun()
 		}
@@ -210,14 +212,15 @@ func (m *Model) View() string {
 		b.WriteString("scripts/hydrate not found in target repo.\n")
 		return b.String()
 	}
-	b.WriteString("platform | local | source | status\n")
+	b.WriteString(keyLegend + "\n")
+	b.WriteString("platform | script | source | status\n")
 	for _, r := range rows {
-		local := "no"
+		script := "no"
 		if r.LocalPresent {
-			local = "yes"
+			script = "yes"
 		}
 		s := m.RowStatus(r.PlatformID)
-		b.WriteString(r.PlatformID + " | " + local + " | " + r.PlannedSource + " | " + s + "\n")
+		b.WriteString(r.PlatformID + " | " + script + " | " + r.PlannedSource + " | " + s + "\n")
 	}
 	return b.String()
 }

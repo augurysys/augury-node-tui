@@ -162,3 +162,66 @@ func TestJobs_BlockedWhenNixFails(t *testing.T) {
 		t.Errorf("ExecuteAction blocked by nix: want non-empty Reason")
 	}
 }
+
+func TestJobs_HydrationPassesPlatformArg(t *testing.T) {
+	injectFakeNix(t)
+	tmp := t.TempDir()
+	root := filepath.Join(tmp, "repo")
+	if err := os.MkdirAll(root, 0755); err != nil {
+		t.Fatal(err)
+	}
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	scriptPath := filepath.Join(absRoot, "scripts", "hydrate")
+	if err := mkdirAndTouch(scriptPath); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(scriptPath, []byte(`#!/bin/sh
+[ "$1" = "--platform" ] && [ "$2" = "node2" ] || exit 1
+exit 0
+`), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := context.Background()
+	req := ActionRequest{Kind: KindHydration, Target: TargetRun, PlatformID: "node2"}
+	job := ExecuteAction(ctx, absRoot, req)
+	if job.State != JobStateSuccess {
+		t.Errorf("ExecuteAction hydration with PlatformID: State = %q, want success (script must receive --platform)", job.State)
+	}
+}
+
+func TestJobs_HydrationLogPathIncludesPlatformID(t *testing.T) {
+	injectFakeNix(t)
+	tmp := t.TempDir()
+	root := filepath.Join(tmp, "repo")
+	if err := os.MkdirAll(root, 0755); err != nil {
+		t.Fatal(err)
+	}
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	scriptPath := filepath.Join(absRoot, "scripts", "hydrate")
+	if err := mkdirAndTouch(scriptPath); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(scriptPath, []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := context.Background()
+	req := ActionRequest{Kind: KindHydration, Target: TargetRun, PlatformID: "node2"}
+	job := ExecuteAction(ctx, absRoot, req)
+	if job.State != JobStateSuccess {
+		t.Fatalf("ExecuteAction: State = %q, want success", job.State)
+	}
+	if !strings.Contains(job.LogPath, "node2") {
+		t.Errorf("LogPath = %q, want to contain platform ID node2 for per-platform log disambiguation", job.LogPath)
+	}
+	if !strings.Contains(job.LogPath, "hydration-run") {
+		t.Errorf("LogPath = %q, want to contain action name", job.LogPath)
+	}
+}

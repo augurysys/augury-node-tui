@@ -217,3 +217,65 @@ func TestHydrationModel_NotAvailableStateWhenScriptMissing(t *testing.T) {
 		t.Errorf("View must show not-available when script missing; got %q", view)
 	}
 }
+
+func TestHydrationModel_LowercaseDAndHAccepted(t *testing.T) {
+	tmp := t.TempDir()
+	root := filepath.Join(tmp, "repo")
+	scriptsDir := filepath.Join(root, "scripts")
+	if err := os.MkdirAll(scriptsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(scriptsDir, "hydrate"), []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	fakeNixDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(fakeNixDir, "nix"), []byte("#!/bin/sh\nexec sh -c \"echo ready\"\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", fakeNixDir+string(filepath.ListSeparator)+os.Getenv("PATH"))
+	platforms := platform.Registry()
+	if len(platforms) == 0 {
+		t.Fatal("need at least one platform")
+	}
+	platID := platforms[0].ID
+	selected := map[string]bool{platID: true}
+	st := status.RepoStatus{Root: root, Branch: "main", SHA: "abc1234"}
+	m := NewModel(st, platforms, selected)
+
+	_, cmdD := m.Update(keyMsg("d"))
+	if cmdD == nil {
+		t.Error("lowercase d must trigger dry-run command")
+	}
+	m2 := NewModel(st, platforms, selected)
+	_, cmdH := m2.Update(keyMsg("h"))
+	if cmdH == nil {
+		t.Error("lowercase h must trigger hydration command")
+	}
+}
+
+func TestHydrationModel_ViewShowsKeyLegend(t *testing.T) {
+	tmp := t.TempDir()
+	root := filepath.Join(tmp, "repo")
+	scriptsDir := filepath.Join(root, "scripts")
+	if err := os.MkdirAll(scriptsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(scriptsDir, "hydrate"), []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	platforms := platform.Registry()
+	if len(platforms) == 0 {
+		t.Fatal("need at least one platform")
+	}
+	selected := map[string]bool{platforms[0].ID: true}
+	st := status.RepoStatus{Root: root, Branch: "main", SHA: "abc1234"}
+	m := NewModel(st, platforms, selected)
+
+	view := m.View()
+	if !strings.Contains(view, "D dry-run") || !strings.Contains(view, "H hydrate") {
+		t.Errorf("View must show key legend (D dry-run, H hydrate); got %q", view)
+	}
+	if !strings.Contains(view, "back") {
+		t.Errorf("View must show back key hint; got %q", view)
+	}
+}

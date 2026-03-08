@@ -47,12 +47,13 @@ func ExecuteAction(ctx context.Context, root string, req ActionRequest) Job {
 		}
 	}
 
+	args := buildScriptArgs(cap.ScriptPath, req)
 	spec := run.RunSpec{
 		Name:    jobNameFromRequest(req),
 		Root:    root,
 		Mode:    run.ModeSmart,
 		Command: "sh",
-		Args:    []string{cap.ScriptPath},
+		Args:    args,
 	}
 	result := run.Execute(ctx, spec)
 
@@ -78,5 +79,17 @@ func ExecuteAction(ctx context.Context, root string, req ActionRequest) Job {
 }
 
 func jobNameFromRequest(req ActionRequest) string {
-	return strings.ReplaceAll(req.ID(), ":", "-")
+	name := strings.ReplaceAll(req.ID(), ":", "-")
+	if req.PlatformID != "" {
+		name += "-" + req.PlatformID
+	}
+	return name
+}
+
+func buildScriptArgs(scriptPath string, req ActionRequest) []string {
+	args := []string{scriptPath}
+	if req.Kind == KindHydration && req.PlatformID != "" {
+		args = append(args, "--platform", req.PlatformID)
+	}
+	return args
 }
