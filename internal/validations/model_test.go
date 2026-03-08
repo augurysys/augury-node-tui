@@ -1,12 +1,19 @@
 package validations
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/augurysys/augury-node-tui/internal/engine"
 	"github.com/augurysys/augury-node-tui/internal/status"
+	tea "github.com/charmbracelet/bubbletea"
 )
+
+func keyMsg(s string) tea.KeyMsg {
+	return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(s)}
+}
 
 func TestValidationsModel_PresetsMapToExactCommands(t *testing.T) {
 	tmp := t.TempDir()
@@ -53,5 +60,122 @@ func TestValidationsModel_ViewListsPresets(t *testing.T) {
 		if !strings.Contains(strings.ToLower(view), strings.ToLower(p)) {
 			t.Errorf("View must mention preset %q; got %q", p, view)
 		}
+	}
+}
+
+func TestValidationsModel_KeyMappingForPresetExecution(t *testing.T) {
+	tmp := t.TempDir()
+	root := filepath.Join(tmp, "repo")
+	scriptsDir := filepath.Join(root, "scripts")
+	if err := os.MkdirAll(scriptsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	for _, script := range []string{"validate-all.sh", "validate-shellcheck.sh", "validate-bats.sh", "validate-parse-test.sh"} {
+		if err := os.WriteFile(filepath.Join(scriptsDir, script), []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	fakeNixDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(fakeNixDir, "nix"), []byte("#!/bin/sh\nexec sh -c \"echo ready\"\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", fakeNixDir+string(filepath.ListSeparator)+os.Getenv("PATH"))
+	st := status.RepoStatus{Root: root, Branch: "main", SHA: "x"}
+	keyToReq := map[string]engine.ActionRequest{
+		"1": engine.ValidationsAll,
+		"2": engine.ValidationsShellcheck,
+		"3": engine.ValidationsBats,
+		"4": engine.ValidationsParse,
+	}
+	for key, wantReq := range keyToReq {
+		m := NewModel(st)
+		_, cmd := m.Update(keyMsg(key))
+		if cmd == nil {
+			t.Errorf("key %q must trigger a command", key)
+			continue
+		}
+		msg := cmd()
+		if msg == nil {
+			t.Errorf("key %q command must produce a message", key)
+			continue
+		}
+		jrm, ok := msg.(jobResultMsg)
+		if !ok {
+			t.Errorf("key %q: expected jobResultMsg, got %T", key, msg)
+			continue
+		}
+		if jrm.Request.ID() != wantReq.ID() {
+			t.Errorf("key %q: request ID = %q, want %q", key, jrm.Request.ID(), wantReq.ID())
+		}
+	}
+}
+
+func TestValidationsModel_ActionBlockedWhenNixNotReady(t *testing.T) {
+	tmp := t.TempDir()
+	root := filepath.Join(tmp, "repo")
+	scriptsDir := filepath.Join(root, "scripts")
+	if err := os.MkdirAll(scriptsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(scriptsDir, "validate-all.sh"), []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	st := status.RepoStatus{Root: root, Branch: "main", SHA: "x"}
+	m := NewModel(st)
+
+	nix := engine.ProbeNix(root)
+	if nix.Ready {
+		t.Skip("nix is ready in test env; cannot test blocked state")
+	}
+	_, _ = m.Update(keyMsg("1"))
+	view := m.View()
+	if !strings.Contains(view, "blocked") {
+		t.Errorf("View must show blocked when nix not ready; got %q", view)
+	}
+}
+
+func TestValidationsModel_NotAvailableWhenRequiredScriptsMissing(t *testing.T) {
+	tmp := t.TempDir()
+	root := filepath.Join(tmp, "repo")
+	st := status.RepoStatus{Root: root, Branch: "main", SHA: "x"}
+	m := NewModel(st)
+
+	_, _ = m.Update(keyMsg("1"))
+	view := m.View()
+	if !strings.Contains(view, "not-available") && !strings.Contains(view, "not available") {
+		t.Errorf("View must show not-available when required scripts missing; got %q", view)
+	}
+}
+
+func TestValidationsModel_ResultSummaryUpdatesAfterRun(t *testing.T) {
+	tmp := t.TempDir()
+	root := filepath.Join(tmp, "repo")
+	scriptsDir := filepath.Join(root, "scripts")
+	if err := os.MkdirAll(scriptsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(scriptsDir, "validate-all.sh"), []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	fakeNixDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(fakeNixDir, "nix"), []byte("#!/bin/sh\nexec sh -c \"echo ready\"\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", fakeNixDir+string(filepath.ListSeparator)+os.Getenv("PATH"))
+	st := status.RepoStatus{Root: root, Branch: "main", SHA: "x"}
+	m := NewModel(st)
+
+	_, cmd := m.Update(keyMsg("1"))
+	if cmd == nil {
+		t.Fatal("key 1 must trigger a command")
+	}
+	msg := cmd()
+	if msg == nil {
+		t.Fatal("command must produce a message")
+	}
+	m2, _ := m.Update(msg)
+	view := m2.(*Model).View()
+	if !strings.Contains(view, "success") && !strings.Contains(view, "all") {
+		t.Errorf("View must show result summary after run; got %q", view)
 	}
 }
