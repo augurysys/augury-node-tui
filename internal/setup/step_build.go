@@ -45,6 +45,22 @@ func (m *BuildStepModel) Update(msg tea.Msg) (*BuildStepModel, tea.Cmd) {
 		m.buildError = msg.Error
 		m.state = "failed"
 		return m, nil
+
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "q":
+			return m, tea.Quit
+		case "r":
+			if m.state == "failed" {
+				m.state = "building"
+				m.buildError = ""
+				m.buildOutput = ""
+				return m, func() tea.Msg {
+					// Stub: will implement actual build in orchestration
+					return BuildCompleteMsg{Success: true}
+				}
+			}
+		}
 	}
 	return m, nil
 }
@@ -62,6 +78,10 @@ func (m *BuildStepModel) View() string {
 			lines = append(lines, "")
 			lines = append(lines, "  "+styles.Dim.Render(m.buildOutput))
 		}
+		if m.state == "building" {
+			lines = append(lines, "")
+			lines = append(lines, "  "+styles.KeyBinding("q", "Cancel"))
+		}
 	}
 
 	if m.state == "failed" {
@@ -70,6 +90,8 @@ func (m *BuildStepModel) View() string {
 			lines = append(lines, "")
 			lines = append(lines, "  "+styles.Error.Render(m.buildError))
 		}
+		lines = append(lines, "")
+		lines = append(lines, "  "+styles.KeyBinding("r", "Retry")+" • "+styles.KeyBinding("q", "Quit"))
 	}
 
 	return styles.Border.Render(strings.Join(lines, "\n"))

@@ -3,6 +3,8 @@ package setup
 import (
 	"strings"
 	"testing"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func TestStepBuild_DisplaysProgress(t *testing.T) {
@@ -45,4 +47,17 @@ func TestStepBuild_BuildFailureShowsError(t *testing.T) {
 	if !strings.Contains(view, "build failed") {
 		t.Error("View should show build error")
 	}
+}
+
+func TestStepBuild_QuitDuringBuild(t *testing.T) {
+	step := NewBuildStep("/augury-node")
+	step.state = "building"
+
+	step, cmd := step.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+
+	if cmd == nil {
+		t.Fatal("q should return quit command")
+	}
+	// Note: tea.Quit is a function, we can't easily assert it matches
+	// but we verify a command is returned
 }
