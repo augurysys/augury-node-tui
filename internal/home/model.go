@@ -125,22 +125,22 @@ func (m *Model) renderRepoStatus() string {
 		styles.Dim.Render(m.Status.SHA[:min(8, len(m.Status.SHA))])))
 
 	// Nix Status
-	nixLabel := "Nix:"
 	var nixStatus string
-	var nixStyle lipgloss.Style
 	if m.nixState.Ready {
-		nixStatus = "✓ ready"
-		nixStyle = styles.Success
+		nixStatus = fmt.Sprintf("  %s  %s",
+			styles.Dim.Render("Nix:"),
+			styles.Success.Render("✓ ready"))
 	} else {
-		nixStatus = "✗ not ready"
-		nixStyle = styles.Error
-		if reason := friendlyNixReason(m.nixState.Reason); reason != "" {
-			nixStatus += " - " + reason
+		reason := friendlyNixReason(m.nixState.Reason)
+		if reason == "" {
+			reason = "check setup"
 		}
+		nixStatus = fmt.Sprintf("  %s  %s\n        %s",
+			styles.Dim.Render("Nix:"),
+			styles.Error.Render("✗ not ready"),
+			styles.Warning.Render("→ "+reason))
 	}
-	lines = append(lines, fmt.Sprintf("  %s  %s",
-		styles.Dim.Render(nixLabel),
-		nixStyle.Render(nixStatus)))
+	lines = append(lines, nixStatus)
 
 	// Paths
 	pathsClean := 0
@@ -269,16 +269,16 @@ func friendlyNixReason(reason string) string {
 	}
 	lower := strings.ToLower(reason)
 	if strings.Contains(lower, "experimental") && strings.Contains(lower, "nix-command") {
-		return "enable nix experimental features (see docs/configuration.md)"
+		return "enable experimental features in ~/.config/nix/nix.conf"
 	}
 	if strings.Contains(lower, "timed out") || strings.Contains(lower, "timeout") {
-		return "nix probe timed out"
+		return "probe timed out"
 	}
 	if strings.Contains(lower, "not found") || strings.Contains(lower, "command not found") {
-		return "nix command not found in PATH"
+		return "command not found in PATH"
 	}
-	if len(reason) > 80 {
-		return reason[:77] + "..."
+	if len(reason) > 60 {
+		return reason[:57] + "..."
 	}
 	return reason
 }

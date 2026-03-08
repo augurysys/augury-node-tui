@@ -299,17 +299,17 @@ func TestNixStatus_NotReadyDisplaysFriendlyMessage(t *testing.T) {
 		{
 			name:     "experimental features",
 			reason:   "error: experimental Nix feature 'nix-command' is disabled; use '--extra-experimental-features nix-command' to override",
-			wantText: "enable nix experimental features",
+			wantText: "enable experimental features",
 		},
 		{
 			name:     "timeout",
 			reason:   "probe timed out after 30s",
-			wantText: "nix probe timed out",
+			wantText: "timed out",
 		},
 		{
 			name:     "command not found",
 			reason:   "nix: command not found",
-			wantText: "nix command not found in PATH",
+			wantText: "command not found in PATH",
 		},
 	}
 	
