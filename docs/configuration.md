@@ -1,6 +1,24 @@
 # Configuration
 
-augury-node-tui uses the augury-node repo root as its workspace. Resolution order:
+augury-node-tui uses the augury-node repo root as its workspace.
+
+## First-Time Setup
+
+The recommended way to configure augury-node-tui is the setup wizard:
+
+```bash
+augury-node-tui setup
+```
+
+The wizard walks through: augury-node root path, Nix configuration, nix-users group, binary installation, and a verification build. Config is saved to `~/.config/augury-node-tui/config.toml`. See [setup-wizard.md](setup-wizard.md) for a detailed guide.
+
+To re-run the wizard (e.g. to change the root path):
+
+```bash
+augury-node-tui setup --reconfigure
+```
+
+## Root Resolution Order
 
 1. Flag (if added)
 2. Config file path (if added)

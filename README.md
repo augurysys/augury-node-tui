@@ -8,17 +8,16 @@ TUI for augury-node builds.
 # 1. Build the TUI
 go build -o augury-node-tui ./cmd/augury-node-tui
 
-# 2. Enable Nix experimental features (first time only)
-mkdir -p ~/.config/nix
-echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
+# 2. First-time setup: run the setup wizard
+augury-node-tui setup
 
 # 3. Run from augury-node workspace
 cd /path/to/augury-node
 nix develop .#dev-env
-/path/to/augury-node-tui/augury-node-tui
+augury-node-tui
 ```
 
-The home screen shows Nix readiness status. Press `r` to refresh after enabling features.
+The setup wizard guides you through configuring the augury-node root, Nix, permissions, and binary installation. See [docs/setup-wizard.md](docs/setup-wizard.md) for details. The home screen shows Nix readiness status. Press `r` to refresh after enabling features.
 
 ## Startup splash behavior
 
