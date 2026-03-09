@@ -86,11 +86,15 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				switch s {
 				case "]": // next platform
 					m.Focused++
+					m.Focused = m.focusedIndex(len(m.Summary.Rows))
 					m.syncLogViewerContent()
+					m.refreshBuildComponents()
 					return m, nil
 				case "[": // prev platform
 					m.Focused--
+					m.Focused = m.focusedIndex(len(m.Summary.Rows))
 					m.syncLogViewerContent()
+					m.refreshBuildComponents()
 					return m, nil
 				case "j", "k", "down", "up", "pgup", "pgdown", "e", "n", "N":
 					return m, m.logViewer.Update(msg)
