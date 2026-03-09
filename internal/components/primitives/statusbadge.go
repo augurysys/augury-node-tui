@@ -49,6 +49,9 @@ func (b StatusBadge) Render() string {
 	case StatusUnavailable:
 		icon = "◌"
 		color = palette.Overlay0
+	default:
+		icon = "?"
+		color = palette.Overlay0
 	}
 
 	style := lipgloss.NewStyle().Foreground(lipgloss.Color(color))

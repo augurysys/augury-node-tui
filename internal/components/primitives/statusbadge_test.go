@@ -56,7 +56,12 @@ func TestStatusBadge_IconMapping(t *testing.T) {
 }
 
 func TestStatusBadge_ColorMapping(t *testing.T) {
-	// Force color output so ANSI codes are emitted in non-TTY (e.g. go test)
+	// Save and restore color profile
+	oldProfile := lipgloss.ColorProfile()
+	t.Cleanup(func() {
+		lipgloss.SetColorProfile(oldProfile)
+	})
+
 	lipgloss.SetColorProfile(termenv.TrueColor)
 
 	// Success should have green color code
