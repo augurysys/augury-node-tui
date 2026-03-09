@@ -2,66 +2,83 @@ package styles
 
 import "github.com/charmbracelet/lipgloss"
 
-// Catppuccin Mocha palette
-type PaletteColors struct {
+// Palette defines the application color scheme (Catppuccin Mocha)
+type Palette struct {
 	// Base colors
-	Base     string
-	Mantle   string
-	Surface0 string
-	Surface1 string
-	Overlay0 string
-	Text     string
-	Subtext0 string
+	Base     string // #1E1E2E (background)
+	Surface0 string // #313244 (elevated surfaces)
+	Overlay0 string // #6C7086 (dimmed text)
+	Text     string // #CDD6F4 (primary text)
 
 	// Semantic status colors
-	Success string
-	Warning string
-	Error   string
-	Info    string
+	Success string // #A6E3A1 (green)
+	Warning string // #F9E2AF (yellow)
+	Error   string // #F38BA8 (red)
+	Info    string // #89B4FA (blue)
 
-	// Categorical accent colors
-	AccentPink     string
-	AccentMauve    string
-	AccentPeach    string
-	AccentTeal     string
-	AccentSapphire string
+	// Accent colors (categorical mapping)
+	AccentPink  string // #F5C2E7 (platforms)
+	AccentMauve string // #CBA6F7 (builds)
+	AccentPeach string // #FAB387 (caches)
+	AccentTeal  string // #94E2D5 (validations)
 }
 
-var Palette = PaletteColors{
-	// Base
-	Base:     "#1E1E2E",
-	Mantle:   "#181825",
-	Surface0: "#313244",
-	Surface1: "#45475A",
-	Overlay0: "#6C7086",
-	Text:     "#CDD6F4",
-	Subtext0: "#A6ADC8",
+// DefaultPalette returns Catppuccin Mocha palette
+func DefaultPalette() Palette {
+	return Palette{
+		Base:     "#1E1E2E",
+		Surface0: "#313244",
+		Overlay0: "#6C7086",
+		Text:     "#CDD6F4",
 
-	// Status
-	Success: "#A6E3A1",
-	Warning: "#F9E2AF",
-	Error:   "#F38BA8",
-	Info:    "#89B4FA",
+		Success: "#A6E3A1",
+		Warning: "#F9E2AF",
+		Error:   "#F38BA8",
+		Info:    "#89B4FA",
 
-	// Accents
-	AccentPink:     "#F5C2E7",
-	AccentMauve:    "#CBA6F7",
-	AccentPeach:    "#FAB387",
-	AccentTeal:     "#94E2D5",
-	AccentSapphire: "#74C7EC",
+		AccentPink:  "#F5C2E7",
+		AccentMauve: "#CBA6F7",
+		AccentPeach: "#FAB387",
+		AccentTeal:  "#94E2D5",
+	}
 }
 
-// Predefined typography styles
-var (
-	TitleStyle     = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(Palette.AccentPink))
-	SectionStyle   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(Palette.Text))
-	BodyStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color(Palette.Text))
-	DimStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color(Palette.Overlay0))
-	HighlightStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(Palette.AccentMauve)).Background(lipgloss.Color(Palette.Surface1))
+// Typography defines text styles
+type Typography struct {
+	Title     lipgloss.Style
+	Section   lipgloss.Style
+	Body      lipgloss.Style
+	Dim       lipgloss.Style
+	Highlight lipgloss.Style
+}
 
-	BorderThick = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color(Palette.Surface1))
-	BorderThin  = lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color(Palette.Overlay0))
-)
+// DefaultTypography returns standard text styles
+func DefaultTypography() Typography {
+	p := DefaultPalette()
+	return Typography{
+		Title:     lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(p.AccentPink)),
+		Section:   lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(p.Text)),
+		Body:      lipgloss.NewStyle().Foreground(lipgloss.Color(p.Text)),
+		Dim:       lipgloss.NewStyle().Foreground(lipgloss.Color(p.Overlay0)),
+		Highlight: lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(p.AccentMauve)),
+	}
+}
+
+// Borders defines border styles
+type Borders struct {
+	Thick lipgloss.Border
+	Thin  lipgloss.Border
+	None  lipgloss.Border
+}
+
+// DefaultBorders returns standard border styles
+func DefaultBorders() Borders {
+	return Borders{
+		Thick: lipgloss.ThickBorder(),
+		Thin:  lipgloss.NormalBorder(),
+		None:  lipgloss.Border{},
+	}
+}
 
 // Spacing constants
 const (

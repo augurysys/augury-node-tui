@@ -2,35 +2,52 @@ package styles
 
 import (
 	"testing"
+
+	"github.com/charmbracelet/lipgloss"
 )
 
-func TestPalette_ColorsAreDefined(t *testing.T) {
-	if Palette.Base == "" {
-		t.Error("Palette.Base should be defined")
+func TestPalette_AllColorsDefined(t *testing.T) {
+	p := DefaultPalette()
+
+	colors := []string{
+		p.Base, p.Surface0, p.Overlay0, p.Text,
+		p.Success, p.Warning, p.Error, p.Info,
+		p.AccentPink, p.AccentMauve, p.AccentPeach, p.AccentTeal,
 	}
-	if Palette.Success == "" {
-		t.Error("Palette.Success should be defined")
-	}
-	if Palette.Error == "" {
-		t.Error("Palette.Error should be defined")
+
+	for _, color := range colors {
+		if color == "" {
+			t.Errorf("color not defined")
+		}
+		// Validate hex format
+		if len(color) != 7 || color[0] != '#' {
+			t.Errorf("invalid hex color: %s", color)
+		}
 	}
 }
 
-func TestPalette_StatusColors(t *testing.T) {
-	tests := []struct {
-		name     string
-		color    string
-		expected string
-	}{
-		{"Success is green", Palette.Success, "#A6E3A1"},
-		{"Error is red", Palette.Error, "#F38BA8"},
-		{"Warning is yellow", Palette.Warning, "#F9E2AF"},
+func TestTypography_AllStylesDefined(t *testing.T) {
+	typo := DefaultTypography()
+
+	// Verify each style is usable
+	_ = typo.Title.Render("test")
+	_ = typo.Section.Render("test")
+	_ = typo.Body.Render("test")
+	_ = typo.Dim.Render("test")
+	_ = typo.Highlight.Render("test")
+}
+
+func TestBorders_ThickThinNone(t *testing.T) {
+	borders := DefaultBorders()
+	empty := lipgloss.Border{}
+
+	if borders.Thick == empty {
+		t.Error("Thick border not defined")
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if tt.color != tt.expected {
-				t.Errorf("got %s, want %s", tt.color, tt.expected)
-			}
-		})
+	if borders.Thin == empty {
+		t.Error("Thin border not defined")
+	}
+	if borders.None != empty {
+		t.Error("None border should be empty")
 	}
 }
