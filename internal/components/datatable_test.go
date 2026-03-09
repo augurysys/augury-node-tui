@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/augurysys/augury-node-tui/internal/ansi"
 )
 
 type testRow struct {
@@ -140,5 +142,80 @@ func TestDataTable_NilRenderer(t *testing.T) {
 	view := table.View()
 	if view == "" {
 		t.Error("View should render even with nil renderer")
+	}
+}
+
+func TestDataTable_Sorting(t *testing.T) {
+	columns := []Column{
+		{Header: "Name", Width: 20, Sortable: true, Renderer: func(r interface{}) string {
+			return r.(testRow).Name
+		}},
+		{Header: "Count", Width: 10, Sortable: true, Renderer: func(r interface{}) string {
+			return fmt.Sprintf("%d", r.(testRow).Count)
+		}},
+	}
+
+	table := NewDataTable(columns)
+	rows := []interface{}{
+		testRow{Name: "Charlie", Count: 30},
+		testRow{Name: "Alice", Count: 10},
+		testRow{Name: "Bob", Count: 20},
+	}
+	table.SetRows(rows)
+
+	// Press 1 to sort by column 0 (Name) ascending
+	table.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'1'}})
+	view := table.View()
+	if !strings.Contains(view, " ▲") {
+		t.Error("Header should show sort indicator ▲ when sorted ascending")
+	}
+	first := table.SelectedRow()
+	if first == nil {
+		t.Fatal("SelectedRow returned nil")
+	}
+	if first.(testRow).Name != "Alice" {
+		t.Errorf("After sort by Name asc, first row should be Alice, got %s", first.(testRow).Name)
+	}
+
+	// Press 1 again to toggle descending
+	table.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'1'}})
+	view = table.View()
+	if !strings.Contains(view, " ▼") {
+		t.Error("Header should show sort indicator ▼ when sorted descending")
+	}
+	first = table.SelectedRow()
+	if first.(testRow).Name != "Charlie" {
+		t.Errorf("After sort by Name desc, first row should be Charlie, got %s", first.(testRow).Name)
+	}
+
+	// Press 2 to sort by Count
+	table.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'2'}})
+	first = table.SelectedRow()
+	if first.(testRow).Count != 10 {
+		t.Errorf("After sort by Count asc, first row should have Count 10, got %d", first.(testRow).Count)
+	}
+}
+
+func TestDataTable_RightAlign(t *testing.T) {
+	columns := []Column{
+		{Header: "Name", Width: 10, Align: AlignLeft, Renderer: func(r interface{}) string {
+			return r.(testRow).Name
+		}},
+		{Header: "Count", Width: 10, Align: AlignRight, Renderer: func(r interface{}) string {
+			return fmt.Sprintf("%d", r.(testRow).Count)
+		}},
+	}
+
+	table := NewDataTable(columns)
+	table.SetRows([]interface{}{
+		testRow{Name: "x", Count: 123},
+	})
+
+	view := table.View()
+	clean := ansi.StripAnsi(view)
+	// Right-aligned "123" in width 10 should have spaces on the left
+	// Count column width is 10, "123" is 3 chars, so 7 spaces before
+	if !strings.Contains(clean, "       123") {
+		t.Errorf("Right-aligned count should have leading spaces; view: %q", clean)
 	}
 }
