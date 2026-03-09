@@ -3,9 +3,14 @@ package components
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/augurysys/augury-node-tui/internal/styles"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/shirou/gopsutil/v3/cpu"
+	"github.com/shirou/gopsutil/v3/disk"
+	"github.com/shirou/gopsutil/v3/mem"
+	"github.com/shirou/gopsutil/v3/process"
 )
 
 const metricsBarBlocks = 5
@@ -48,6 +53,48 @@ func (m MetricsBar) Render() string {
 		line = truncateLineToWidth(line, m.Width)
 	}
 	return line
+}
+
+// FetchMetrics updates the MetricsBar fields with current system metrics using gopsutil.
+func (m *MetricsBar) FetchMetrics() error {
+	// Fetch CPU (average across all cores, 100ms sample)
+	cpuPercents, err := cpu.Percent(100*time.Millisecond, false)
+	if err == nil && len(cpuPercents) > 0 {
+		m.CPU = clamp01(cpuPercents[0] / 100.0)
+	}
+
+	// Fetch Memory
+	vmStat, err := mem.VirtualMemory()
+	if err == nil {
+		m.Memory = clamp01(vmStat.UsedPercent / 100.0)
+	}
+
+	// Fetch Disk (root partition "/")
+	diskStat, err := disk.Usage("/")
+	if err == nil {
+		m.Disk = clamp01(diskStat.UsedPercent / 100.0)
+	}
+
+	// Fetch hot process (most CPU-intensive)
+	procs, err := process.Processes()
+	if err == nil {
+		var maxCPU float64
+		var hotProc *process.Process
+		for _, p := range procs {
+			cpuPct, err := p.CPUPercent()
+			if err == nil && cpuPct > maxCPU {
+				maxCPU = cpuPct
+				hotProc = p
+			}
+		}
+		if hotProc != nil {
+			name, _ := hotProc.Name()
+			numThreads, _ := hotProc.NumThreads()
+			m.HotProcess = fmt.Sprintf("%s (%d threads)", name, numThreads)
+		}
+	}
+
+	return nil
 }
 
 func clamp01(v float64) float64 {

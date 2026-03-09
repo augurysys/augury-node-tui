@@ -220,3 +220,25 @@ func TestMetricsBar_Render_OutputFormat(t *testing.T) {
 		t.Errorf("Should show full hot process, got: %s", clean)
 	}
 }
+
+func TestMetricsBar_FetchMetrics_Integration(t *testing.T) {
+	m := MetricsBar{}
+	err := m.FetchMetrics()
+	if err != nil {
+		t.Errorf("FetchMetrics() failed: %v", err)
+	}
+
+	// Verify metrics are in valid range
+	if m.CPU < 0 || m.CPU > 1 {
+		t.Errorf("CPU out of range: %f", m.CPU)
+	}
+	if m.Memory < 0 || m.Memory > 1 {
+		t.Errorf("Memory out of range: %f", m.Memory)
+	}
+	if m.Disk < 0 || m.Disk > 1 {
+		t.Errorf("Disk out of range: %f", m.Disk)
+	}
+
+	// HotProcess should be populated (or empty if no processes found)
+	t.Logf("Hot process: %s", m.HotProcess)
+}
