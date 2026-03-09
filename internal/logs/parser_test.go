@@ -130,3 +130,53 @@ func TestParser_ContextWindowExtraction(t *testing.T) {
 		})
 	}
 }
+
+func TestParseErrors_NixError(t *testing.T) {
+	content := `Building packages...
+error: experimental Nix feature 'nix-command' is disabled
+Build failed`
+
+	errors := ParseErrors(content)
+
+	if len(errors) == 0 {
+		t.Fatal("Should detect Nix error")
+	}
+
+	err := errors[0]
+	if err.Level != ErrorLevelError {
+		t.Error("Should classify as Error level")
+	}
+	if err.LineNumber <= 0 {
+		t.Error("Should capture line number")
+	}
+	if err.Suggestion == "" {
+		t.Error("Should provide suggestion")
+	}
+}
+
+func TestParseErrors_GCCError(t *testing.T) {
+	content := `Compiling foo.c
+foo.c:42: undefined reference to 'bar'
+Compilation failed`
+
+	errors := ParseErrors(content)
+
+	if len(errors) == 0 {
+		t.Fatal("Should detect GCC error")
+	}
+
+	if !strings.Contains(errors[0].LineText, "undefined reference") {
+		t.Error("Should capture error text")
+	}
+}
+
+func TestParseErrors_NoErrors(t *testing.T) {
+	content := `All builds successful
+No errors found`
+
+	errors := ParseErrors(content)
+
+	if len(errors) != 0 {
+		t.Errorf("Should not detect errors in clean output, got: %d", len(errors))
+	}
+}
