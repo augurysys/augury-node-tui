@@ -37,6 +37,7 @@ func newModel(st status.RepoStatus, platforms []platform.Platform, splashTimeout
 	c := caches.NewModel(st, platforms)
 	v := validations.NewModel(st)
 	h := hints.NewModel(st, platforms)
+	h.SetNixState(nix)
 	bm.SetNixState(nix)
 	c.SetNixState(nix)
 	hyd.SetNixState(nix)
@@ -87,6 +88,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.caches.SetNixState(m.nixState)
 			m.hydrate.SetNixState(m.nixState)
 			m.validations.SetNixState(m.nixState)
+			m.hints.SetNixState(m.nixState)
 			return m, nil
 		}
 	case nav.NavigateMsg:
