@@ -129,30 +129,27 @@ func TestCommandDisplay_Render_Error(t *testing.T) {
 func TestCommandDisplay_Render_Success_NoDuration(t *testing.T) {
 	exit0 := 0
 	c := CommandDisplay{
-		Command:     "echo done",
-		Description: "",
-		Executing:   false,
-		ExitCode:    &exit0,
-		Duration:    nil,
+		Command:   "ls -la",
+		Executing: false,
+		ExitCode:  &exit0,
+		Duration:  nil,
 	}
 
 	rendered := c.Render()
 	clean := ansi.StripAnsi(rendered)
 
 	if !strings.Contains(clean, "✓") {
-		t.Errorf("Should show ✓, got: %s", clean)
+		t.Errorf("Expected success icon, got: %s", clean)
 	}
-	if !strings.Contains(clean, "exit 0") {
-		t.Errorf("Should show exit 0, got: %s", clean)
+	if !strings.Contains(clean, "ls -la") {
+		t.Errorf("Expected command, got: %s", clean)
 	}
-	// Should not have duration when nil
-	if strings.Contains(clean, "0s") || strings.Contains(clean, "m") {
-		// "0s" could appear from formatting; "m" from "exit 0" - be careful
-		// Actually "exit 0" doesn't have "m". Let's check we don't have ", 0s" or ", Xs"
-		// Format when duration is nil: "(exit 0)" without duration
-		if strings.Contains(clean, ", ") && strings.HasSuffix(strings.TrimSpace(clean), "s") {
-			t.Errorf("Should not show duration when nil, got: %s", clean)
-		}
+	if !strings.Contains(clean, "(exit 0)") {
+		t.Errorf("Expected exit code, got: %s", clean)
+	}
+	// Ensure no duration is shown (no comma after exit code)
+	if strings.Contains(clean, ", ") {
+		t.Errorf("Should not show duration when nil (no comma before duration), got: %s", clean)
 	}
 }
 

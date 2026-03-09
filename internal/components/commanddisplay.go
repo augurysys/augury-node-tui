@@ -31,15 +31,14 @@ func (c CommandDisplay) Render() string {
 }
 
 func (c CommandDisplay) renderExecuting(palette styles.Palette) string {
-	runningStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(palette.Info))
-	descStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(palette.Info))
+	infoStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(palette.Info))
 
-	line1 := runningStyle.Render("Running: " + c.Command)
+	line1 := infoStyle.Render("Running: " + c.Command)
 	desc := c.Description
 	if desc == "" {
 		desc = "..."
 	}
-	line2 := descStyle.Render("[●] " + desc)
+	line2 := infoStyle.Render("[●] " + desc)
 	return line1 + "\n" + line2
 }
 
@@ -62,10 +61,7 @@ func (c CommandDisplay) renderComplete(palette styles.Palette) string {
 
 	// Format: "✓ command (exit 0, 2m34s)" or "✓ command (exit 0)" when no duration
 	suffix := c.formatSuffix()
-	text := icon + " " + c.Command
-	if suffix != "" {
-		text += " " + suffix
-	}
+	text := icon + " " + c.Command + " " + suffix
 	return style.Render(text)
 }
 
