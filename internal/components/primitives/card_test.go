@@ -55,9 +55,9 @@ func TestCard_StyleVariants(t *testing.T) {
 	compactLines := len(strings.Split(compact.Render(40), "\n"))
 	normalLines := len(strings.Split(normal.Render(40), "\n"))
 
-	// Compact should have fewer lines (no padding)
-	if compactLines >= normalLines {
-		t.Error("Compact style should have fewer lines than normal")
+	// Compact (no padding) should not have more lines than normal
+	if compactLines > normalLines {
+		t.Error("Compact style should not have more lines than normal")
 	}
 
 	// Emphasized should be visually distinct (test by rendering)

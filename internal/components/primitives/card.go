@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/mattn/go-runewidth"
 	"github.com/augurysys/augury-node-tui/internal/styles"
 )
 
@@ -53,7 +54,7 @@ func (c Card) Render(width int) string {
 		Border(border).
 		BorderForeground(lipgloss.Color(borderColor)).
 		Width(width - 2). // Account for borders
-		Padding(padding, padding)
+		Padding(0, padding)
 
 	// Word-wrap content
 	wrapped := wordWrap(c.Content, width-4-padding*2) // Account for borders + padding
@@ -70,20 +71,21 @@ func (c Card) Render(width int) string {
 	return style.Render(content)
 }
 
-// wordWrap breaks text at word boundaries to fit width
+// wordWrap breaks text at word boundaries to fit width (display width, not bytes)
 func wordWrap(text string, width int) string {
 	if width <= 0 {
 		return text
 	}
-
 	words := strings.Fields(text)
 	var lines []string
 	var currentLine strings.Builder
 
 	for _, word := range words {
-		if currentLine.Len() == 0 {
+		wordWidth := runewidth.StringWidth(word)
+		lineWidth := runewidth.StringWidth(currentLine.String())
+		if lineWidth == 0 {
 			currentLine.WriteString(word)
-		} else if currentLine.Len()+1+len(word) <= width {
+		} else if lineWidth+1+wordWidth <= width {
 			currentLine.WriteString(" " + word)
 		} else {
 			lines = append(lines, currentLine.String())
@@ -91,10 +93,8 @@ func wordWrap(text string, width int) string {
 			currentLine.WriteString(word)
 		}
 	}
-
 	if currentLine.Len() > 0 {
 		lines = append(lines, currentLine.String())
 	}
-
 	return strings.Join(lines, "\n")
 }
