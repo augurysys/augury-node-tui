@@ -8,7 +8,7 @@ import (
 )
 
 func TestStepSuccess_DisplaysCompletionMessage(t *testing.T) {
-	step := NewSuccessStep()
+	step := NewSuccessStep([]string{})
 	view := step.View()
 
 	if !strings.Contains(view, "Setup Complete") || !strings.Contains(view, "✓") {
@@ -17,20 +17,36 @@ func TestStepSuccess_DisplaysCompletionMessage(t *testing.T) {
 }
 
 func TestStepSuccess_DisplaysNextSteps(t *testing.T) {
-	step := NewSuccessStep()
+	step := NewSuccessStep([]string{})
 	view := step.View()
 
-	if !strings.Contains(view, "augury-node-tui") {
-		t.Error("View should mention how to run the TUI")
+	if !strings.Contains(view, "Run commands") && !strings.Contains(view, "Explore build") {
+		t.Error("View should mention next steps (run commands, explore screens)")
 	}
 }
 
 func TestStepSuccess_QuitOnEnter(t *testing.T) {
-	step := NewSuccessStep()
+	step := NewSuccessStep([]string{})
 	step, cmd := step.Update(tea.KeyMsg{Type: tea.KeyEnter})
 
 	if cmd == nil {
 		t.Fatal("Enter should return quit command")
 	}
 	// Note: can't easily test tea.Quit here, but verify cmd is not nil
+}
+
+func TestSuccessStep_UsesCardComponent(t *testing.T) {
+	step := NewSuccessStep([]string{})
+	view := step.View()
+
+	// Should have card borders (NormalBorder: ─┌, ThickBorder: ━┏)
+	if !strings.Contains(view, "─") && !strings.Contains(view, "┌") &&
+		!strings.Contains(view, "━") && !strings.Contains(view, "┏") {
+		t.Error("Success screen should use Card component with borders")
+	}
+
+	// Should contain success message
+	if !strings.Contains(view, "Setup Complete") {
+		t.Error("Should show success message")
+	}
 }

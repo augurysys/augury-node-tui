@@ -47,7 +47,7 @@ func NewWizard(reconfigure bool) *WizardModel {
 		stepGroups:   NewGroupsStep(),
 		stepInstall:  NewInstallStep(binaryPath),
 		stepNixBuild: nil,
-		stepSuccess:  NewSuccessStep(),
+		stepSuccess:  nil, // created when advancing to step 5 with skipped steps
 		reconfiguring: reconfiguring,
 	}
 }
@@ -94,6 +94,7 @@ func (m *WizardModel) advanceStep() (tea.Model, tea.Cmd) {
 			cmd = m.stepNixBuild.Init()
 		}
 	case 5:
+		m.stepSuccess = NewSuccessStep(m.config.SkippedSteps)
 		cmd = m.stepSuccess.Init()
 	}
 	return m, cmd

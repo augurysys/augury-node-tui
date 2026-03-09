@@ -3,19 +3,21 @@ package setup
 import (
 	"strings"
 
-	"github.com/augurysys/augury-node-tui/internal/styles"
+	"github.com/augurysys/augury-node-tui/internal/components/primitives"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
 type SuccessStepModel struct {
-	state     string
-	confirmed bool
+	state       string
+	confirmed   bool
+	skippedSteps []string
 }
 
-func NewSuccessStep() *SuccessStepModel {
+func NewSuccessStep(skippedSteps []string) *SuccessStepModel {
 	return &SuccessStepModel{
-		state:     "ready",
-		confirmed: true,
+		state:        "ready",
+		confirmed:    true,
+		skippedSteps: skippedSteps,
 	}
 }
 
@@ -34,20 +36,44 @@ func (m *SuccessStepModel) Update(msg tea.Msg) (*SuccessStepModel, tea.Cmd) {
 }
 
 func (m *SuccessStepModel) View() string {
-	var lines []string
+	// Build content
+	var content strings.Builder
+	content.WriteString("✓ Setup completed successfully!\n\n")
+	content.WriteString("Next steps:\n")
+	content.WriteString("  1. Run commands from the TUI\n")
+	content.WriteString("  2. Explore build/hydrate/caches screens\n")
 
-	header := styles.Header.Render("✓ Setup Complete")
-	lines = append(lines, header)
-	lines = append(lines, "")
-	lines = append(lines, "  "+styles.Success.Render("✓")+" All setup steps completed successfully.")
-	lines = append(lines, "")
-	lines = append(lines, "  "+styles.Dim.Render("Next steps:"))
-	lines = append(lines, "")
-	lines = append(lines, "  Run "+styles.Info.Render("augury-node-tui")+" to start the application.")
-	lines = append(lines, "")
-	lines = append(lines, "  "+styles.KeyBinding("enter", "Quit"))
+	if len(m.skippedSteps) > 0 {
+		content.WriteString("\n⚠ Some steps were skipped:\n")
+		for _, step := range m.skippedSteps {
+			content.WriteString("  - " + step + "\n")
+		}
+	}
 
-	return styles.Border.Render(strings.Join(lines, "\n"))
+	// Use Card component
+	card := primitives.Card{
+		Title:   "Setup Complete",
+		Content: content.String(),
+		Style:   primitives.CardEmphasized,
+	}
+
+	cardView := card.Render(80)
+
+	// Add key hints using KeyHint component
+	launchHint := primitives.KeyHint{
+		Key:         "enter",
+		Description: "Launch main TUI",
+		Enabled:     true,
+	}
+	quitHint := primitives.KeyHint{
+		Key:         "q",
+		Description: "Quit",
+		Enabled:     true,
+	}
+
+	keyHints := "\n" + launchHint.Render() + "  •  " + quitHint.Render()
+
+	return cardView + keyHints
 }
 
 func (m *SuccessStepModel) Confirmed() bool {
