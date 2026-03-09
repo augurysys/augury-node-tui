@@ -203,7 +203,7 @@ func (m *Model) View() string {
 				v := r.(Validation)
 				badge := primitives.StatusBadge{
 					Label:  v.Status,
-					Status: statusFromString(v.Status),
+					Status: statusFromString(primaryStatus(v.Status)),
 				}
 				return badge.Render()
 			},
@@ -250,9 +250,23 @@ func (m *Model) buildRows() []Validation {
 				statusStr = "not-available"
 			}
 		}
-		rows = append(rows, Validation{Name: p, Status: statusStr, Message: ""})
+		parts := strings.SplitN(statusStr, ": ", 2)
+		status := strings.TrimSpace(parts[0])
+		message := ""
+		if len(parts) > 1 {
+			message = strings.TrimSpace(parts[1])
+		}
+		rows = append(rows, Validation{Name: p, Status: status, Message: message})
 	}
 	return rows
+}
+
+func primaryStatus(s string) string {
+	s = strings.TrimSpace(s)
+	if idx := strings.IndexAny(s, " :"); idx >= 0 {
+		return s[:idx]
+	}
+	return s
 }
 
 func statusFromString(s string) primitives.Status {
