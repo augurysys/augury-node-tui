@@ -103,6 +103,10 @@ func (m *Model) renderOutputPath(row interface{}) string {
 	return row.(PlatformEntry).OutputPath
 }
 
+// fetchPlatformData converts platforms to table rows.
+// Note: Platform table is refreshed only on toggle. If DeveloperDownloads changes
+// externally (e.g. after build/hydrate), the table state will be stale until the
+// next toggle or refresh.
 func (m *Model) fetchPlatformData() []interface{} {
 	rows := make([]interface{}, 0, len(m.Platforms))
 	for _, p := range m.Platforms {
@@ -131,8 +135,21 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.Height = msg.Height
 		m.metricsBar.Width = msg.Width
 		m.platformTable.SetWidth(msg.Width)
+
 		if msg.Height > 0 {
-			m.platformTable.SetHeight(msg.Height)
+			// Calculate remaining height for table (title, diagram, card, metrics, header, key help)
+			reservedHeight := 22
+			if msg.Width < diagram.MinDiagramWidth {
+				reservedHeight -= 8 // No diagram if narrow
+			}
+			if !m.showMetrics {
+				reservedHeight -= 1 // No metrics bar if disabled
+			}
+			tableHeight := msg.Height - reservedHeight
+			if tableHeight < 5 {
+				tableHeight = 5
+			}
+			m.platformTable.SetHeight(tableHeight)
 		} else {
 			m.platformTable.SetHeight(20)
 		}
