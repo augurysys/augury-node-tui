@@ -199,3 +199,25 @@ func TestValidationsModel_ResultSummaryUpdatesAfterRun(t *testing.T) {
 		t.Errorf("View must render run result status success after run; got %q", view)
 	}
 }
+
+func TestValidationsScreen_UsesDataTable(t *testing.T) {
+	st := status.RepoStatus{Root: "/x", Branch: "main", SHA: "x"}
+	m := NewModel(st)
+	// Add some test validation data
+	m.SetValidations([]Validation{
+		{Name: "Test1", Status: "pass", Message: "OK"},
+		{Name: "Test2", Status: "fail", Message: "Error"},
+	})
+
+	view := m.View()
+
+	// Should use DataTable component (check for table formatting)
+	if !strings.Contains(view, "│") {
+		t.Error("Validations screen should use DataTable with column separators")
+	}
+
+	// Should render validation data
+	if !strings.Contains(view, "Test1") || !strings.Contains(view, "Test2") {
+		t.Error("Should render validation names")
+	}
+}

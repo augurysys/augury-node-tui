@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/augurysys/augury-node-tui/internal/components"
+	"github.com/augurysys/augury-node-tui/internal/components/primitives"
 	"github.com/augurysys/augury-node-tui/internal/engine"
 	"github.com/augurysys/augury-node-tui/internal/run"
 	"github.com/augurysys/augury-node-tui/internal/status"
@@ -44,11 +46,20 @@ type jobResultMsg struct {
 	Request engine.ActionRequest
 }
 
+// Validation represents a single validation row for display
+type Validation struct {
+	Name    string
+	Status  string
+	Message string
+}
+
 type Model struct {
 	Status       status.RepoStatus
 	nixState     engine.NixState
 	presetStatus map[string]string
+	validations  []Validation // optional override; when set, used instead of presetStatus
 	Width        int
+	Height       int
 }
 
 func NewModel(st status.RepoStatus) *Model {
@@ -63,6 +74,10 @@ func (m *Model) SetNixState(nix engine.NixState) {
 	m.nixState = nix
 }
 
+func (m *Model) SetValidations(v []Validation) {
+	m.validations = v
+}
+
 func (m *Model) Init() tea.Cmd {
 	return nil
 }
@@ -71,6 +86,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.Width = msg.Width
+		m.Height = msg.Height
 		return m, nil
 	case tea.KeyMsg:
 		k := msg.String()
@@ -170,6 +186,60 @@ func (m *Model) View() string {
 	b.WriteString("Validations\n")
 	b.WriteString("1 all | 2 shellcheck | 3 bats | 4 parse-test\n")
 	b.WriteString("Presets: all, shellcheck-only, bats-only, parse-test-only\n")
+
+	rows := m.buildRows()
+	columns := []components.Column{
+		{
+			Header: "Name",
+			Width:  30,
+			Renderer: func(r interface{}) string {
+				return r.(Validation).Name
+			},
+		},
+		{
+			Header: "Status",
+			Width:  15,
+			Renderer: func(r interface{}) string {
+				v := r.(Validation)
+				badge := primitives.StatusBadge{
+					Label:  v.Status,
+					Status: statusFromString(v.Status),
+				}
+				return badge.Render()
+			},
+		},
+		{
+			Header: "Message",
+			Width:  50,
+			Renderer: func(r interface{}) string {
+				return r.(Validation).Message
+			},
+		},
+	}
+
+	table := components.NewDataTable(columns)
+	table.SetWidth(m.Width)
+	if m.Height > 0 {
+		table.SetHeight(m.Height)
+	} else {
+		table.SetHeight(20)
+	}
+
+	rowInterfaces := make([]interface{}, len(rows))
+	for i, v := range rows {
+		rowInterfaces[i] = v
+	}
+	table.SetRows(rowInterfaces)
+
+	b.WriteString(table.View())
+	return b.String()
+}
+
+func (m *Model) buildRows() []Validation {
+	if len(m.validations) > 0 {
+		return m.validations
+	}
+	rows := make([]Validation, 0, len(presets))
 	for _, p := range presets {
 		statusStr := m.presetStatus[p]
 		if statusStr == "" {
@@ -180,7 +250,24 @@ func (m *Model) View() string {
 				statusStr = "not-available"
 			}
 		}
-		b.WriteString("  " + p + ": " + statusStr + "\n")
+		rows = append(rows, Validation{Name: p, Status: statusStr, Message: ""})
 	}
-	return b.String()
+	return rows
+}
+
+func statusFromString(s string) primitives.Status {
+	switch strings.ToLower(s) {
+	case "pass", "ok", "success", "available":
+		return primitives.StatusSuccess
+	case "fail", "error", "failed", "not-available":
+		return primitives.StatusError
+	case "warn", "warning":
+		return primitives.StatusWarning
+	case "running", "pending":
+		return primitives.StatusRunning
+	case "blocked":
+		return primitives.StatusBlocked
+	default:
+		return primitives.StatusUnavailable
+	}
 }
