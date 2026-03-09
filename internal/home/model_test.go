@@ -167,10 +167,17 @@ func TestHomeModel_KeyJ_MovesFocusDown(t *testing.T) {
 		t.Skip("need at least 2 platforms")
 	}
 	m := NewModel(status.RepoStatus{Root: "/x", Branch: "main", SHA: "x"}, platforms)
+	// Press j to move focus down, then space to toggle selection
 	model, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
 	m = model.(*Model)
-	if m.Focused != 1 {
-		t.Errorf("j should move focus to 1; got %d", m.Focused)
+	model, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(" ")})
+	m = model.(*Model)
+	// Second platform (index 1) should now be selected, not first
+	if m.IsPlatformSelected(platforms[0].ID) {
+		t.Error("j+space should select second platform, not first")
+	}
+	if !m.IsPlatformSelected(platforms[1].ID) {
+		t.Error("j+space should select second platform")
 	}
 }
 
@@ -254,8 +261,10 @@ func TestDiagram_HomeViewExcludesDiagramWhenTooNarrow(t *testing.T) {
 	m := NewModel(st, platform.Registry())
 	_, _ = m.Update(tea.WindowSizeMsg{Width: 40, Height: 24})
 	view := m.View()
-	if strings.Contains(view, "\u250c") {
-		t.Errorf("View should not include box-drawing diagram when width < 60")
+	// Diagram contains "Build" and "Hydrate" in flow boxes; key hints have "build"/"hydrate" (lowercase).
+	// The diagram has "│Build│" - check for the diagram's flow structure.
+	if strings.Contains(view, "│Build│") {
+		t.Errorf("View should not include platform flow diagram when width < 60")
 	}
 }
 

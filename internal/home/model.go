@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/augurysys/augury-node-tui/internal/components"
+	"github.com/augurysys/augury-node-tui/internal/components/primitives"
 	"github.com/augurysys/augury-node-tui/internal/data/developerdownloads"
 	"github.com/augurysys/augury-node-tui/internal/engine"
 	"github.com/augurysys/augury-node-tui/internal/nav"
@@ -15,15 +17,26 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+// PlatformEntry holds platform data for the DataTable
+type PlatformEntry struct {
+	ID         string
+	State      string // source state: built, hydrated, missing, or ""
+	OutputPath string
+	Selected   bool
+}
+
 type Model struct {
 	Status                 status.RepoStatus
 	Platforms              []platform.Platform
 	Selected               map[string]bool
-	Focused                int
 	DeveloperDownloads     *developerdownloads.Index
 	DeveloperDownloadsErr  error
 	Width                  int
+	Height                 int
 	nixState               engine.NixState
+	platformTable          *components.DataTable
+	metricsBar             components.MetricsBar
+	showMetrics            bool
 }
 
 func NewModel(st status.RepoStatus, platforms []platform.Platform) *Model {
@@ -32,7 +45,79 @@ func NewModel(st status.RepoStatus, platforms []platform.Platform) *Model {
 		sel[p.ID] = false
 	}
 	idx, err := developerdownloads.ReadAt(st.Root)
-	return &Model{Status: st, Platforms: platforms, Selected: sel, DeveloperDownloads: idx, DeveloperDownloadsErr: err}
+	m := &Model{
+		Status:                st,
+		Platforms:             platforms,
+		Selected:              sel,
+		DeveloperDownloads:    idx,
+		DeveloperDownloadsErr: err,
+		metricsBar:            components.MetricsBar{},
+	}
+	m.initPlatformTable()
+	return m
+}
+
+func (m *Model) initPlatformTable() {
+	columns := []components.Column{
+		{Header: "☐", Width: 3, Sortable: false, Renderer: m.renderCheckbox},
+		{Header: "Platform", Width: 20, Sortable: true, Renderer: m.renderPlatformID},
+		{Header: "State", Width: 12, Sortable: true, Renderer: m.renderState},
+		{Header: "Path", Width: -1, Sortable: true, Renderer: m.renderOutputPath},
+	}
+	m.platformTable = components.NewDataTable(columns)
+	m.platformTable.SetRows(m.fetchPlatformData())
+}
+
+func (m *Model) renderCheckbox(row interface{}) string {
+	e := row.(PlatformEntry)
+	if e.Selected {
+		return "☑"
+	}
+	return "☐"
+}
+
+func (m *Model) renderPlatformID(row interface{}) string {
+	return row.(PlatformEntry).ID
+}
+
+func (m *Model) renderState(row interface{}) string {
+	e := row.(PlatformEntry)
+	if e.State == "" {
+		return "-"
+	}
+	st := primitives.StatusSuccess
+	switch e.State {
+	case "built":
+		st = primitives.StatusSuccess
+	case "hydrated":
+		st = primitives.StatusRunning
+	case "missing":
+		st = primitives.StatusUnavailable
+	default:
+		st = primitives.StatusWarning
+	}
+	return primitives.StatusBadge{Label: e.State, Status: st}.Render()
+}
+
+func (m *Model) renderOutputPath(row interface{}) string {
+	return row.(PlatformEntry).OutputPath
+}
+
+func (m *Model) fetchPlatformData() []interface{} {
+	rows := make([]interface{}, 0, len(m.Platforms))
+	for _, p := range m.Platforms {
+		state := ""
+		if m.DeveloperDownloads != nil {
+			state = string(m.DeveloperDownloads.SourceState(p.ID))
+		}
+		rows = append(rows, PlatformEntry{
+			ID:         p.ID,
+			State:      state,
+			OutputPath: p.OutputRelPath,
+			Selected:   m.Selected[p.ID],
+		})
+	}
+	return rows
 }
 
 func (m *Model) Init() tea.Cmd {
@@ -43,6 +128,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.Width = msg.Width
+		m.Height = msg.Height
+		m.metricsBar.Width = msg.Width
+		m.platformTable.SetWidth(msg.Width)
+		if msg.Height > 0 {
+			m.platformTable.SetHeight(msg.Height)
+		} else {
+			m.platformTable.SetHeight(20)
+		}
 		return m, nil
 	case tea.KeyMsg:
 		s := msg.String()
@@ -61,16 +154,15 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, func() tea.Msg { return nav.NavigateMsg{Route: "validations"} }
 		case "o":
 			return m, func() tea.Msg { return nav.NavigateMsg{Route: "hints"} }
-		case "j", "down":
-			m.Focused = (m.Focused + 1) % max(1, len(m.Platforms))
-			return m, nil
-		case "k", "up":
-			m.Focused = (m.Focused - 1 + len(m.Platforms)) % max(1, len(m.Platforms))
+		case "j", "down", "k", "up":
+			m.platformTable.Update(msg)
 			return m, nil
 		case " ", "space", "enter":
-			if len(m.Platforms) > 0 {
-				id := m.Platforms[m.Focused].ID
+			row := m.platformTable.SelectedRow()
+			if row != nil {
+				id := row.(PlatformEntry).ID
 				m.TogglePlatform(id)
+				m.platformTable.SetRows(m.fetchPlatformData())
 				return m, nil
 			}
 		}
@@ -90,13 +182,31 @@ func (m *Model) View() string {
 		sections = append(sections, diagram.PlatformFlow(m.Platforms))
 	}
 
-	// Repository Status Section
-	repoSection := m.renderRepoStatus()
-	sections = append(sections, styles.Border.Render(repoSection))
+	// Repo status card
+	repoCard := primitives.Card{
+		Title:   "📁 Repository",
+		Content: m.renderRepoStatus(),
+		Style:   primitives.CardNormal,
+	}
+	width := m.Width
+	if width <= 0 {
+		width = 80
+	}
+	sections = append(sections, repoCard.Render(width))
 
-	// Platforms Section
-	platformsSection := m.renderPlatforms()
-	sections = append(sections, styles.Section.Render(platformsSection))
+	// Metrics bar (if enabled)
+	if m.showMetrics {
+		sections = append(sections, m.metricsBar.Render())
+	}
+
+	// Platform table section
+	platformHeader := styles.Header.Render("🎯 Platforms")
+	hint := styles.Dim.Render(" (j/k: navigate • space: toggle)")
+	if m.DeveloperDownloads == nil {
+		hint += "  " + styles.Warning.Render("⚠ developer-downloads unavailable")
+	}
+	platformSection := platformHeader + hint + "\n" + m.platformTable.View()
+	sections = append(sections, styles.Section.Render(platformSection))
 
 	// Key Bindings
 	keyHelp := m.renderKeyHelp()
@@ -106,43 +216,26 @@ func (m *Model) View() string {
 }
 
 func (m *Model) renderRepoStatus() string {
-	var lines []string
-
-	// Header
-	header := styles.Header.Render("📁 Repository")
-	lines = append(lines, header)
-
-	// Root
-	lines = append(lines, fmt.Sprintf("  %s  %s",
-		styles.Dim.Render("Root:"),
-		styles.Highlight.Render(m.Status.Root)))
-
-	// Branch
-	lines = append(lines, fmt.Sprintf("  %s %s  %s %s",
-		styles.Dim.Render("Branch:"),
-		styles.Info.Render(m.Status.Branch),
-		styles.Dim.Render("SHA:"),
-		styles.Dim.Render(m.Status.SHA[:min(8, len(m.Status.SHA))])))
-
-	// Nix Status
-	var nixStatus string
-	if m.nixState.Ready {
-		nixStatus = fmt.Sprintf("  %s  %s",
-			styles.Dim.Render("Nix:"),
-			styles.Success.Render("✓ ready"))
-	} else {
-		reason := friendlyNixReason(m.nixState.Reason)
-		if reason == "" {
-			reason = "check setup"
-		}
-		nixStatus = fmt.Sprintf("  %s  %s\n        %s",
-			styles.Dim.Render("Nix:"),
-			styles.Error.Render("✗ not ready"),
-			styles.Warning.Render("→ "+reason))
+	lines := []string{
+		fmt.Sprintf("Root: %s", m.Status.Root),
+		fmt.Sprintf("Branch: %s  SHA: %s", m.Status.Branch, m.Status.SHA[:min(8, len(m.Status.SHA))]),
 	}
-	lines = append(lines, nixStatus)
 
-	// Paths
+	nixStatus := primitives.StatusSuccess
+	if !m.nixState.Ready {
+		nixStatus = primitives.StatusError
+	}
+	nixBadge := primitives.StatusBadge{
+		Label:  nixStatusLabel(m.nixState),
+		Status: nixStatus,
+	}
+	lines = append(lines, nixBadge.Render())
+	if !m.nixState.Ready {
+		if reason := friendlyNixReason(m.nixState.Reason); reason != "" {
+			lines = append(lines, "  → "+reason)
+		}
+	}
+
 	pathsClean := 0
 	pathsDirty := 0
 	for _, p := range status.RequiredPaths {
@@ -152,80 +245,23 @@ func (m *Model) renderRepoStatus() string {
 			pathsClean++
 		}
 	}
-	var pathStatus string
+	pathStatus := primitives.StatusSuccess
+	pathLabel := fmt.Sprintf("%d paths clean", pathsClean)
 	if pathsDirty > 0 {
-		pathStatus = fmt.Sprintf("%s %d dirty, %d clean",
-			styles.Warning.Render("⚠"),
-			pathsDirty, pathsClean)
-	} else {
-		pathStatus = styles.Success.Render(fmt.Sprintf("✓ %d paths clean", pathsClean))
+		pathStatus = primitives.StatusWarning
+		pathLabel = fmt.Sprintf("%d dirty, %d clean", pathsDirty, pathsClean)
 	}
-	lines = append(lines, fmt.Sprintf("  %s  %s",
-		styles.Dim.Render("Paths:"),
-		pathStatus))
+	pathBadge := primitives.StatusBadge{Label: pathLabel, Status: pathStatus}
+	lines = append(lines, pathBadge.Render())
 
 	return strings.Join(lines, "\n")
 }
 
-func (m *Model) renderPlatforms() string {
-	var lines []string
-
-	// Header
-	header := styles.Header.Render("🎯 Platforms")
-	hint := styles.Dim.Render(" (j/k: navigate • space: toggle)")
-	lines = append(lines, header+hint)
-
-	// Developer downloads status
-	if m.DeveloperDownloads == nil {
-		lines = append(lines, "  "+styles.Warning.Render("⚠ developer-downloads unavailable"))
+func nixStatusLabel(nix engine.NixState) string {
+	if nix.Ready {
+		return "ready"
 	}
-
-	// Platform list
-	for i, p := range m.Platforms {
-		line := m.renderPlatformItem(i, p)
-		lines = append(lines, line)
-	}
-
-	return strings.Join(lines, "\n")
-}
-
-func (m *Model) renderPlatformItem(index int, p platform.Platform) string {
-	// Selection checkbox
-	checkbox := "☐"
-	if m.Selected[p.ID] {
-		checkbox = "☑"
-	}
-
-	// Platform ID
-	idText := p.ID
-
-	// Source state indicator
-	var stateText string
-	if m.DeveloperDownloads != nil {
-		state := m.DeveloperDownloads.SourceState(p.ID)
-		if state != "" {
-			stateStyle := styles.StatusStyle(string(state))
-			switch state {
-			case "built":
-				stateText = stateStyle.Render("● built")
-			case "hydrated":
-				stateText = stateStyle.Render("● hydrated")
-			case "missing":
-				stateText = stateStyle.Render("○ missing")
-			default:
-				stateText = styles.Dim.Render("○ " + string(state))
-			}
-		}
-	}
-
-	// Build the line
-	content := fmt.Sprintf("  %s %s %s", checkbox, idText, stateText)
-
-	// Apply selection styling
-	if index == m.Focused {
-		return styles.ItemSelected.Render("▶ " + content)
-	}
-	return styles.Item.Render("  " + content)
+	return "not ready"
 }
 
 func (m *Model) renderKeyHelp() string {
@@ -240,13 +276,6 @@ func (m *Model) renderKeyHelp() string {
 		styles.KeyBinding("q", "quit"),
 	}
 	return strings.Join(keys, "  •  ")
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
 
 func (m *Model) TogglePlatform(id string) {
