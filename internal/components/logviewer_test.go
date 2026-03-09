@@ -26,10 +26,7 @@ func TestLogViewer_JumpToFirstError(t *testing.T) {
 	viewer := NewLogViewer(content)
 
 	// Jump to first error
-	cmd := viewer.JumpToFirstError()
-	if cmd == nil {
-		t.Error("JumpToFirstError should return command")
-	}
+	viewer.JumpToFirstError()
 
 	// Error should be detected
 	if len(viewer.Errors()) == 0 {
@@ -49,5 +46,42 @@ func TestLogViewer_Navigation(t *testing.T) {
 	view := viewer.View()
 	if view == "" {
 		t.Error("LogViewer should render after navigation")
+	}
+}
+
+func TestLogViewer_ErrorNavigation(t *testing.T) {
+	content := "Line 1\nerror: first problem\nLine 3\nerror: second problem\nLine 5"
+	viewer := NewLogViewer(content)
+
+	// Should detect 2 errors
+	if len(viewer.Errors()) != 2 {
+		t.Fatalf("Expected 2 errors, got: %d", len(viewer.Errors()))
+	}
+
+	// Jump to first error
+	viewer.JumpToFirstError()
+	view := viewer.View()
+
+	// Status bar should show 1/2
+	if !strings.Contains(view, "1/2") {
+		t.Error("Status bar should show error 1/2")
+	}
+
+	// Next error
+	viewer.NextError()
+	view = viewer.View()
+
+	// Status bar should show 2/2
+	if !strings.Contains(view, "2/2") {
+		t.Error("Status bar should show error 2/2 after NextError")
+	}
+
+	// Previous error (wraps to last)
+	viewer.PrevError()
+	view = viewer.View()
+
+	// Should show 1/2 again
+	if !strings.Contains(view, "1/2") {
+		t.Error("Status bar should show error 1/2 after PrevError")
 	}
 }

@@ -34,9 +34,27 @@ func NewLogViewer(content string) *LogViewer {
 	}
 }
 
+// Init runs the viewport's Init for proper Bubble Tea integration
+func (v *LogViewer) Init() tea.Cmd {
+	return v.viewport.Init()
+}
+
 // SetHeight updates viewport height
 func (v *LogViewer) SetHeight(height int) {
 	v.viewport.Height = height
+}
+
+// SetContent updates log content and re-parses errors
+func (v *LogViewer) SetContent(content string) {
+	v.content = content
+	v.errors = logs.ParseErrors(content)
+	v.currentErr = -1
+	v.viewport.SetContent(content)
+}
+
+// SetWidth updates viewport width
+func (v *LogViewer) SetWidth(width int) {
+	v.viewport.Width = width
 }
 
 // JumpToFirstError moves viewport to first error
@@ -49,10 +67,9 @@ func (v *LogViewer) JumpToFirstError() tea.Cmd {
 	err := v.errors[0]
 
 	// Scroll to error line (YOffset is 0-indexed line number)
-	v.viewport.GotoTop()
 	v.viewport.SetYOffset(max(0, err.LineNumber-1))
 
-	return func() tea.Msg { return nil }
+	return nil
 }
 
 // NextError jumps to next error
@@ -64,7 +81,6 @@ func (v *LogViewer) NextError() tea.Cmd {
 	v.currentErr = (v.currentErr + 1) % len(v.errors)
 	err := v.errors[v.currentErr]
 
-	v.viewport.GotoTop()
 	v.viewport.SetYOffset(max(0, err.LineNumber-1))
 
 	return nil
@@ -82,7 +98,6 @@ func (v *LogViewer) PrevError() tea.Cmd {
 	}
 
 	err := v.errors[v.currentErr]
-	v.viewport.GotoTop()
 	v.viewport.SetYOffset(max(0, err.LineNumber-1))
 
 	return nil
