@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/augurysys/augury-node-tui/internal/components"
+	"github.com/augurysys/augury-node-tui/internal/components/primitives"
 	"github.com/augurysys/augury-node-tui/internal/engine"
 	"github.com/augurysys/augury-node-tui/internal/platform"
 	"github.com/augurysys/augury-node-tui/internal/run"
@@ -14,6 +16,14 @@ import (
 )
 
 const keyLegend = "D dry-run | H hydrate | b/esc back"
+
+// Artifact represents a hydration artifact for display in the table
+type Artifact struct {
+	Name     string
+	Status   string
+	Progress int
+	Total    int
+}
 
 type DryRunRow struct {
 	PlatformID    string
@@ -27,6 +37,9 @@ type Model struct {
 	Selected  map[string]bool
 	nixState  engine.NixState
 	rowStatus map[string]string
+	artifacts []Artifact // optional override; when set, used instead of DryRunRows
+	Width     int
+	Height    int
 }
 
 func NewModel(st status.RepoStatus, platforms []platform.Platform, selected map[string]bool) *Model {
@@ -36,7 +49,13 @@ func NewModel(st status.RepoStatus, platforms []platform.Platform, selected map[
 		Selected:  selected,
 		nixState:  engine.ProbeNix(st.Root),
 		rowStatus: make(map[string]string),
+		Width:     80,
+		Height:    20,
 	}
+}
+
+func (m *Model) SetArtifacts(a []Artifact) {
+	m.artifacts = a
 }
 
 func (m *Model) SetNixState(nix engine.NixState) {
@@ -49,6 +68,10 @@ func (m *Model) Init() tea.Cmd {
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.Width = msg.Width
+		m.Height = msg.Height
+		return m, nil
 	case tea.KeyMsg:
 		k := strings.ToUpper(msg.String())
 		if k == "D" {
@@ -207,32 +230,147 @@ func (m *Model) CommandDispatch(platformID string) (run.RunSpec, bool) {
 
 func (m *Model) View() string {
 	var b strings.Builder
-	rows := m.DryRunRows()
+	b.WriteString(keyLegend + "\n")
+
+	rows := m.buildRows()
 	if len(rows) == 0 {
 		b.WriteString("No platforms selected.\n")
 		return b.String()
 	}
-	available := false
-	for _, r := range rows {
-		if r.PlannedSource != "not available" {
-			available = true
-			break
+
+	// When not using artifacts, check availability from DryRunRows
+	if len(m.artifacts) == 0 {
+		drRows := m.DryRunRows()
+		available := false
+		for _, r := range drRows {
+			if r.PlannedSource != "not available" {
+				available = true
+				break
+			}
+		}
+		if !available {
+			b.WriteString("Hydration not available.\n")
+			b.WriteString("scripts/hydrate not found in target repo.\n")
+			return b.String()
 		}
 	}
-	if !available {
-		b.WriteString("Hydration not available.\n")
-		b.WriteString("scripts/hydrate not found in target repo.\n")
-		return b.String()
+
+	columns := []components.Column{
+		{
+			Header: "Artifact",
+			Width:  40,
+			Renderer: func(r interface{}) string {
+				return r.(Artifact).Name
+			},
+		},
+		{
+			Header: "Status",
+			Width:  15,
+			Renderer: func(r interface{}) string {
+				art := r.(Artifact)
+				primary := primaryStatus(art.Status)
+				badge := primitives.StatusBadge{
+					Label:  primary,
+					Status: statusFromString(primary),
+				}
+				return badge.Render()
+			},
+		},
+		{
+			Header: "Message",
+			Width:  40,
+			Renderer: func(r interface{}) string {
+				art := r.(Artifact)
+				_, msg := splitStatusMessage(art.Status)
+				return msg
+			},
+		},
+		{
+			Header: "Progress",
+			Width:  40,
+			Renderer: func(r interface{}) string {
+				art := r.(Artifact)
+				if art.Status == "downloading" || art.Status == "hydrating" {
+					bar := primitives.ProgressBar{
+						Current: art.Progress,
+						Total:   art.Total,
+						Width:   35,
+						Label:   "",
+					}
+					return bar.Render()
+				}
+				return ""
+			},
+		},
 	}
-	b.WriteString(keyLegend + "\n")
-	b.WriteString("platform | script | source | status\n")
-	for _, r := range rows {
-		script := "no"
-		if r.LocalPresent {
-			script = "yes"
-		}
-		s := m.RowStatus(r.PlatformID)
-		b.WriteString(r.PlatformID + " | " + script + " | " + r.PlannedSource + " | " + s + "\n")
+
+	table := components.NewDataTable(columns)
+	table.SetWidth(m.Width)
+	if m.Height > 0 {
+		table.SetHeight(m.Height)
+	} else {
+		table.SetHeight(20)
 	}
+
+	rowInterfaces := make([]interface{}, len(rows))
+	for i, a := range rows {
+		rowInterfaces[i] = a
+	}
+	table.SetRows(rowInterfaces)
+
+	b.WriteString(table.View())
 	return b.String()
+}
+
+func (m *Model) buildRows() []Artifact {
+	if len(m.artifacts) > 0 {
+		return m.artifacts
+	}
+	var rows []Artifact
+	for _, r := range m.DryRunRows() {
+		s := m.RowStatus(r.PlatformID)
+		if s == "" {
+			s = "pending"
+		}
+		rows = append(rows, Artifact{
+			Name:     r.PlatformID,
+			Status:   s,
+			Progress: 0,
+			Total:    0,
+		})
+	}
+	return rows
+}
+
+func primaryStatus(s string) string {
+	s = strings.TrimSpace(s)
+	if idx := strings.Index(s, ": "); idx >= 0 {
+		return s[:idx]
+	}
+	return s
+}
+
+func splitStatusMessage(s string) (string, string) {
+	s = strings.TrimSpace(s)
+	if idx := strings.Index(s, ": "); idx >= 0 {
+		return s[:idx], strings.TrimSpace(s[idx+2:])
+	}
+	return s, ""
+}
+
+func statusFromString(s string) primitives.Status {
+	switch strings.ToLower(s) {
+	case "cached", "complete", "ok":
+		return primitives.StatusSuccess
+	case "downloading", "hydrating", "pending":
+		return primitives.StatusRunning
+	case "error", "failed":
+		return primitives.StatusError
+	case "blocked":
+		return primitives.StatusBlocked
+	case "missing", "unavailable", "not-available":
+		return primitives.StatusUnavailable
+	default:
+		return primitives.StatusUnavailable
+	}
 }

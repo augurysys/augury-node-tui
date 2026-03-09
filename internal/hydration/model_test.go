@@ -297,6 +297,38 @@ func TestHydrationModel_LowercaseDAndHAccepted(t *testing.T) {
 	}
 }
 
+func TestHydrationScreen_UsesComponents(t *testing.T) {
+	tmp := t.TempDir()
+	st := status.RepoStatus{Root: tmp, Branch: "main", SHA: "abc1234"}
+	platforms := platform.Registry()
+	selected := map[string]bool{}
+	if len(platforms) > 0 {
+		selected[platforms[0].ID] = true
+	}
+	m := NewModel(st, platforms, selected)
+	m.SetArtifacts([]Artifact{
+		{Name: "artifact1", Status: "cached", Progress: 100, Total: 100},
+		{Name: "artifact2", Status: "downloading", Progress: 50, Total: 100},
+	})
+
+	view := m.View()
+
+	// Should use DataTable (column separators)
+	if !strings.Contains(view, "│") {
+		t.Error("Hydration screen should use DataTable")
+	}
+
+	// Should render artifact names
+	if !strings.Contains(view, "artifact1") {
+		t.Error("Should render artifact names")
+	}
+
+	// Should use ProgressBar for in-progress artifacts
+	if !strings.Contains(view, "█") && !strings.Contains(view, "░") {
+		t.Error("Should show progress bars for downloading artifacts")
+	}
+}
+
 func TestHydrationModel_ViewShowsKeyLegend(t *testing.T) {
 	tmp := t.TempDir()
 	root := filepath.Join(tmp, "repo")
