@@ -1,7 +1,9 @@
 package components
 
 import (
+	"errors"
 	"fmt"
+	"runtime"
 	"strings"
 	"time"
 
@@ -57,27 +59,41 @@ func (m MetricsBar) Render() string {
 
 // FetchMetrics updates the MetricsBar fields with current system metrics using gopsutil.
 func (m *MetricsBar) FetchMetrics() error {
+	var errs []error
+
 	// Fetch CPU (average across all cores, 100ms sample)
 	cpuPercents, err := cpu.Percent(100*time.Millisecond, false)
-	if err == nil && len(cpuPercents) > 0 {
+	if err != nil {
+		errs = append(errs, fmt.Errorf("cpu: %w", err))
+	} else if len(cpuPercents) > 0 {
 		m.CPU = clamp01(cpuPercents[0] / 100.0)
 	}
 
 	// Fetch Memory
 	vmStat, err := mem.VirtualMemory()
-	if err == nil {
+	if err != nil {
+		errs = append(errs, fmt.Errorf("mem: %w", err))
+	} else {
 		m.Memory = clamp01(vmStat.UsedPercent / 100.0)
 	}
 
-	// Fetch Disk (root partition "/")
-	diskStat, err := disk.Usage("/")
-	if err == nil {
+	// Fetch Disk (platform-specific path)
+	diskPath := "/"
+	if runtime.GOOS == "windows" {
+		diskPath = "C:"
+	}
+	diskStat, err := disk.Usage(diskPath)
+	if err != nil {
+		errs = append(errs, fmt.Errorf("disk: %w", err))
+	} else {
 		m.Disk = clamp01(diskStat.UsedPercent / 100.0)
 	}
 
 	// Fetch hot process (most CPU-intensive)
 	procs, err := process.Processes()
-	if err == nil {
+	if err != nil {
+		errs = append(errs, fmt.Errorf("process: %w", err))
+	} else {
 		var maxCPU float64
 		var hotProc *process.Process
 		for _, p := range procs {
@@ -89,11 +105,17 @@ func (m *MetricsBar) FetchMetrics() error {
 		}
 		if hotProc != nil {
 			name, _ := hotProc.Name()
+			if name == "" {
+				name = fmt.Sprintf("pid:%d", hotProc.Pid)
+			}
 			numThreads, _ := hotProc.NumThreads()
 			m.HotProcess = fmt.Sprintf("%s (%d threads)", name, numThreads)
 		}
 	}
 
+	if len(errs) > 0 {
+		return errors.Join(errs...)
+	}
 	return nil
 }
 
