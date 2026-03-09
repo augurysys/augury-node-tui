@@ -14,8 +14,8 @@ func TestHintsScreen_UsesComponents(t *testing.T) {
 	m := NewModel(st, platforms)
 	view := m.View()
 
-	// Should use Card component (has borders)
-	if !strings.Contains(view, "─") {
+	// Should use Card component (has borders - single ─ or double ═)
+	if !strings.Contains(view, "─") && !strings.Contains(view, "═") {
 		t.Error("Hints screen should use Card component")
 	}
 

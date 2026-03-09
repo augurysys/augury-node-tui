@@ -185,14 +185,19 @@ func (t *DataTable) adjustScroll() {
 // View renders the table
 func (t *DataTable) View() string {
 	palette := styles.DefaultPalette()
-	typo := styles.DefaultTypography()
 
 	var result strings.Builder
 
-	// Render header
+	// Column widths for consistent layout
+	colWidths := t.computeColumnWidths()
+
+	// Render header with Lavender prominence and double-line underline
+	headerStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(palette.AccentLavender)).
+		Bold(true)
 	var headerCells []string
 	for i, col := range t.columns {
-		headerStyle := typo.Section
+		w := colWidths[i]
 		hdr := col.Header
 		if t.sortColumnIdx == i {
 			if t.sortAsc {
@@ -201,11 +206,12 @@ func (t *DataTable) View() string {
 				hdr += " ▼"
 			}
 		}
-		cell := headerStyle.Render(truncate(hdr, col.Width))
+		cell := headerStyle.Render(truncate(hdr, w))
 		headerCells = append(headerCells, cell)
 	}
-	result.WriteString(strings.Join(headerCells, " │ ") + "\n")
-	result.WriteString(strings.Repeat("─", t.width) + "\n")
+	separator := " ║ "
+	result.WriteString(strings.Join(headerCells, separator) + "\n")
+	result.WriteString(strings.Repeat("═", t.width) + "\n")
 
 	if len(t.rows) == 0 {
 		return result.String()
@@ -221,32 +227,63 @@ func (t *DataTable) View() string {
 		endIdx = len(t.rows)
 	}
 
+	// Row styles for alternating and selection
+	selectedStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(palette.AccentBlue)).
+		Bold(true)
+	altRowStyle := lipgloss.NewStyle().
+		Background(lipgloss.Color(palette.Surface0))
+
 	for i := t.scrollOff; i < endIdx; i++ {
 		row := t.rows[i]
 		var cells []string
 
-		for _, col := range t.columns {
+		for j, col := range t.columns {
+			w := colWidths[j]
 			var content string
 			if col.Renderer != nil {
 				content = col.Renderer(row)
 			}
-			cell := alignCell(content, col.Width, col.Align)
-
-			// Highlight selected row
-			if i == t.selectedIdx {
-				highlightStyle := lipgloss.NewStyle().
-					Foreground(lipgloss.Color(palette.AccentMauve)).
-					Bold(true)
-				cell = highlightStyle.Render(cell)
-			}
-
+			cell := alignCell(content, w, col.Align)
 			cells = append(cells, cell)
 		}
 
-		result.WriteString(strings.Join(cells, " │ ") + "\n")
+		rowStr := strings.Join(cells, separator)
+		if i == t.selectedIdx {
+			rowStr = selectedStyle.Render(rowStr)
+		} else if (i-t.scrollOff)%2 == 1 {
+			rowStr = altRowStyle.Render(rowStr)
+		}
+		result.WriteString(rowStr + "\n")
 	}
 
 	return result.String()
+}
+
+// computeColumnWidths returns fixed widths for each column; flex column gets remainder
+func (t *DataTable) computeColumnWidths() []int {
+	totalFixed := 0
+	for _, col := range t.columns {
+		if col.Width > 0 {
+			totalFixed += col.Width
+		}
+	}
+	// Account for separators: " ║ " = 3 chars between columns
+	separatorWidth := 3 * (len(t.columns) - 1)
+	available := t.width - totalFixed - separatorWidth
+	if available < 10 {
+		available = 10
+	}
+
+	widths := make([]int, len(t.columns))
+	for i, col := range t.columns {
+		if col.Width <= 0 {
+			widths[i] = available
+		} else {
+			widths[i] = col.Width
+		}
+	}
+	return widths
 }
 
 // SelectedRow returns currently selected row data

@@ -14,6 +14,7 @@ func TestPalette_AllColorsDefined(t *testing.T) {
 		p.Base, p.Surface0, p.Overlay0, p.Text,
 		p.Success, p.Warning, p.Error, p.Info,
 		p.AccentPink, p.AccentMauve, p.AccentPeach, p.AccentTeal,
+		p.AccentBlue, p.AccentLavender,
 	}
 
 	for _, color := range colors {
@@ -48,7 +49,7 @@ func TestTypography_AllStylesDefined(t *testing.T) {
 	}
 }
 
-func TestBorders_ThickThinNone(t *testing.T) {
+func TestBorders_ThickThinDoubleNone(t *testing.T) {
 	borders := DefaultBorders()
 	empty := lipgloss.Border{}
 
@@ -57,6 +58,9 @@ func TestBorders_ThickThinNone(t *testing.T) {
 	}
 	if borders.Thin == empty {
 		t.Error("Thin border not defined")
+	}
+	if borders.Double == empty {
+		t.Error("Double border not defined")
 	}
 	if borders.None != empty {
 		t.Error("None border should be empty")

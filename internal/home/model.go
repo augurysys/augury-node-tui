@@ -189,14 +189,15 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *Model) View() string {
 	var sections []string
+	blank := ""
 
-	// Title
+	// Title - large, bold, centered
 	title := styles.Title.Render("🚀 Augury Node Builder")
-	sections = append(sections, title)
+	sections = append(sections, title, blank)
 
 	// Diagram (if wide enough)
 	if m.Width >= diagram.MinDiagramWidth {
-		sections = append(sections, diagram.PlatformFlow(m.Platforms))
+		sections = append(sections, diagram.PlatformFlow(m.Platforms), blank)
 	}
 
 	// Repo status card
@@ -209,11 +210,11 @@ func (m *Model) View() string {
 	if width <= 0 {
 		width = 80
 	}
-	sections = append(sections, repoCard.Render(width))
+	sections = append(sections, repoCard.Render(width), blank)
 
 	// Metrics bar (if enabled)
 	if m.showMetrics {
-		sections = append(sections, m.metricsBar.Render())
+		sections = append(sections, m.metricsBar.Render(), blank)
 	}
 
 	// Platform table section
@@ -223,7 +224,7 @@ func (m *Model) View() string {
 		hint += "  " + styles.Warning.Render("⚠ developer-downloads unavailable")
 	}
 	platformSection := platformHeader + hint + "\n" + m.platformTable.View()
-	sections = append(sections, styles.Section.Render(platformSection))
+	sections = append(sections, styles.Section.Render(platformSection), blank)
 
 	// Key Bindings
 	keyHelp := m.renderKeyHelp()

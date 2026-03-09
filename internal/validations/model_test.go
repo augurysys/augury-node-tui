@@ -211,8 +211,8 @@ func TestValidationsScreen_UsesDataTable(t *testing.T) {
 
 	view := m.View()
 
-	// Should use DataTable component (check for table formatting)
-	if !strings.Contains(view, "│") {
+	// Should use DataTable component (check for table formatting - │ or ║)
+	if !strings.Contains(view, "│") && !strings.Contains(view, "║") {
 		t.Error("Validations screen should use DataTable with column separators")
 	}
 

@@ -48,9 +48,10 @@ func TestSuccessStep_UsesCardComponent(t *testing.T) {
 	step := NewSuccessStep([]string{})
 	view := step.View()
 
-	// Should have card borders (NormalBorder: ─┌, ThickBorder: ━┏)
+	// Should have card borders (Normal: ─┌ or ═╔, Thick: ━┏)
 	if !strings.Contains(view, "─") && !strings.Contains(view, "┌") &&
-		!strings.Contains(view, "━") && !strings.Contains(view, "┏") {
+		!strings.Contains(view, "━") && !strings.Contains(view, "┏") &&
+		!strings.Contains(view, "═") && !strings.Contains(view, "╔") {
 		t.Error("Success screen should use Card component with borders")
 	}
 
