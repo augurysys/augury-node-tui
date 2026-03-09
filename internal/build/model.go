@@ -55,6 +55,8 @@ func NewModel(st status.RepoStatus, platforms []platform.Platform, selected map[
 		nixState:     engine.ProbeNix(st.Root),
 		Mode:         run.ModeSmart,
 		ForceRebuild: make(map[string]bool),
+		Width:        80,
+		Height:       24,
 	}
 	if m.Selected == nil {
 		m.Selected = make(map[string]bool)
@@ -149,10 +151,16 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.Summary = msg.Summary
 		m.BuildCancel = nil
 		m.initLogViewer()
-		if m.logViewer != nil {
-			return m, m.logViewer.Init()
+		m.refreshBuildComponents()
+		m.updateComponentDimensions()
+		fetchMetrics := func() tea.Msg {
+			_ = m.metricsBar.FetchMetrics()
+			return nil
 		}
-		return m, nil
+		if m.logViewer != nil {
+			return m, tea.Batch(m.logViewer.Init(), fetchMetrics)
+		}
+		return m, fetchMetrics
 	case CancelBuildMsg:
 		if m.BuildCancel != nil {
 			m.BuildCancel()
@@ -242,6 +250,15 @@ func (m *Model) syncLogViewerContent() {
 	m.logViewer.SetContent(content)
 }
 
+func (m *Model) refreshBuildComponents() {
+	if m.Summary == nil {
+		return
+	}
+	m.parallelTracker.Lanes = m.summaryRowsToBuildLanes()
+	pid := m.focusedLogPlatformID()
+	m.commandDisplay = m.buildCommandDisplay(pid)
+}
+
 func (m *Model) updateComponentDimensions() {
 	if m.Width <= 0 {
 		return
@@ -269,27 +286,11 @@ func (m *Model) View() string {
 }
 
 func (m *Model) viewLogResults() string {
-	if m.logViewer == nil && len(m.Summary.Rows) > 0 {
-		m.initLogViewer()
-	}
-	if m.Width <= 0 {
-		m.Width = 80
-	}
-	if m.Height <= 0 {
-		m.Height = 24
-	}
-	m.updateComponentDimensions()
-
 	leftWidth := (m.Width * 3) / 10
 	middleWidth := (m.Width * 3) / 10
 	rightWidth := m.Width - leftWidth - middleWidth - 2
 
-	m.parallelTracker.Lanes = m.summaryRowsToBuildLanes()
 	leftPane := m.parallelTracker.Render()
-
-	pid := m.focusedLogPlatformID()
-	m.metricsBar.FetchMetrics()
-	m.commandDisplay = m.buildCommandDisplay(pid)
 	middlePane := lipgloss.JoinVertical(lipgloss.Left,
 		m.metricsBar.Render(),
 		"",

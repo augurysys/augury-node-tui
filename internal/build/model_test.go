@@ -159,8 +159,10 @@ func TestLog_ViewRendersLogWhenSummaryExists(t *testing.T) {
 		t.Fatal(err)
 	}
 	m := NewModel(status.RepoStatus{Root: tmp, Branch: "main", SHA: "x"}, platforms, map[string]bool{pid: true})
-	m.Summary = &Summary{Rows: []SummaryRow{{PlatformID: pid, Status: RowStatusFailure}}}
-	m.Focused = 0
+	child, _ := m.Update(BuildCompleteMsg{
+		Summary: &Summary{Rows: []SummaryRow{{PlatformID: pid, Status: RowStatusFailure}}},
+	})
+	m = child.(*Model)
 	view := m.View()
 	if !strings.Contains(view, "log line 1") {
 		t.Errorf("View must render log content; got %q", view)
@@ -189,18 +191,20 @@ func TestLog_PlatformSwitchWithBracketKeys(t *testing.T) {
 	}
 	selected := map[string]bool{p0: true, p1: true}
 	m := NewModel(status.RepoStatus{Root: tmp, Branch: "main", SHA: "x"}, platforms, selected)
-	m.Summary = &Summary{
-		Rows: []SummaryRow{
-			{PlatformID: p0, Status: RowStatusSuccess},
-			{PlatformID: p1, Status: RowStatusSuccess},
+	child, _ := m.Update(BuildCompleteMsg{
+		Summary: &Summary{
+			Rows: []SummaryRow{
+				{PlatformID: p0, Status: RowStatusSuccess},
+				{PlatformID: p1, Status: RowStatusSuccess},
+			},
 		},
-	}
-	m.Focused = 0
+	})
+	m = child.(*Model)
 	view0 := m.View()
 	if !strings.Contains(view0, "platform0 log") {
 		t.Errorf("initial view must show platform0 log; got %q", view0)
 	}
-	child, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("]")})
+	child, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("]")})
 	m = child.(*Model)
 	view1 := m.View()
 	if !strings.Contains(view1, "platform1 log") {
