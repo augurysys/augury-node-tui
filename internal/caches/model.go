@@ -182,8 +182,10 @@ func primaryStatus(s string) string {
 
 func (m *Model) Init() tea.Cmd {
 	m.initCacheTable()
-	_ = m.metricsBar.FetchMetrics()
-	return nil
+	return func() tea.Msg {
+		_ = m.metricsBar.FetchMetrics()
+		return nil
+	}
 }
 
 func (m *Model) SetNixState(nix engine.NixState) {
@@ -333,13 +335,6 @@ func (m *Model) View() string {
 		return b.String()
 	}
 	b.WriteString("Build-unit: B=build R=pull D=delete | Platform: P=pull U=push X=clean\n")
-	m.cacheTable.SetWidth(m.Width)
-	if m.Height > 0 {
-		m.cacheTable.SetHeight(m.Height)
-	} else {
-		m.cacheTable.SetHeight(20)
-	}
-	m.cacheTable.SetRows(m.fetchCacheData())
 	b.WriteString(m.cacheTable.View())
 	return b.String()
 }

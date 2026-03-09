@@ -122,7 +122,7 @@ func (t *DataTable) Update(msg tea.Msg) tea.Cmd {
 	return nil
 }
 
-// cycleSortColumn advances to the next sortable column, or clears sort if at last
+// cycleSortColumn advances to the next sortable column; at the last, wraps to the first and toggles direction.
 func (t *DataTable) cycleSortColumn() {
 	var sortable []int
 	for i, c := range t.columns {
@@ -271,7 +271,8 @@ func truncate(s string, width int) string {
 	return runewidth.Truncate(s, width-1, "…")
 }
 
-// alignCell formats cell content according to column alignment
+// alignCell formats cell content according to column alignment.
+// Note: if content exceeds width, it is truncated and ANSI styling is removed.
 func alignCell(content string, width int, align Alignment) string {
 	if width <= 0 {
 		return content
