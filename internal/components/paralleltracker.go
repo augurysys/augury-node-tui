@@ -5,6 +5,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/augurysys/augury-node-tui/internal/ansi"
 	"github.com/augurysys/augury-node-tui/internal/components/primitives"
 	"github.com/augurysys/augury-node-tui/internal/styles"
 	"github.com/charmbracelet/lipgloss"
@@ -166,42 +167,27 @@ func statusIconAndColor(status primitives.Status, palette styles.Palette) (strin
 	switch status {
 	case primitives.StatusRunning:
 		return "▶", palette.Info
+	case primitives.StatusSuccess:
+		return "✓", palette.Success
+	case primitives.StatusError:
+		return "✗", palette.Error
 	case primitives.StatusBlocked, primitives.StatusUnavailable:
 		return "□", palette.Overlay0
 	default:
-		return "▶", palette.Overlay0
+		return "?", palette.Overlay0
 	}
 }
 
+// truncateToWidth truncates s to fit within maxWidth display width.
+// Strips ANSI sequences before truncating to ensure correct width calculation,
+// even if input contains unexpected ANSI codes.
 func truncateToWidth(s string, width int) string {
 	if width <= 0 {
 		return s
 	}
-	// Strip ANSI for width calculation
-	displayWidth := runewidth.StringWidth(stripAnsiForWidth(s))
+	displayWidth := runewidth.StringWidth(ansi.StripAnsi(s))
 	if displayWidth <= width {
 		return s
 	}
 	return runewidth.Truncate(s, width-1, "…")
-}
-
-// stripAnsiForWidth removes ANSI codes for runewidth calculation
-func stripAnsiForWidth(s string) string {
-	var result strings.Builder
-	inEscape := false
-	for i := 0; i < len(s); i++ {
-		if s[i] == '\x1b' && i+1 < len(s) && s[i+1] == '[' {
-			inEscape = true
-			i++
-			continue
-		}
-		if inEscape {
-			if s[i] == 'm' {
-				inEscape = false
-			}
-			continue
-		}
-		result.WriteByte(s[i])
-	}
-	return result.String()
 }

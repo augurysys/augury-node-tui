@@ -5,30 +5,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/augurysys/augury-node-tui/internal/ansi"
 	"github.com/augurysys/augury-node-tui/internal/components/primitives"
 	"github.com/mattn/go-runewidth"
 )
-
-// stripAnsi removes ANSI escape sequences for content assertions
-func stripAnsi(s string) string {
-	var result strings.Builder
-	inEscape := false
-	for i := 0; i < len(s); i++ {
-		if s[i] == '\x1b' && i+1 < len(s) && s[i+1] == '[' {
-			inEscape = true
-			i++
-			continue
-		}
-		if inEscape {
-			if s[i] == 'm' {
-				inEscape = false
-			}
-			continue
-		}
-		result.WriteByte(s[i])
-	}
-	return result.String()
-}
 
 func TestParallelTracker_EmptyLanes(t *testing.T) {
 	p := ParallelTracker{
@@ -59,7 +39,7 @@ func TestParallelTracker_SingleRunningLane(t *testing.T) {
 	}
 
 	rendered := p.Render()
-	clean := stripAnsi(rendered)
+	clean := ansi.StripAnsi(rendered)
 
 	if !strings.Contains(clean, "node2") {
 		t.Errorf("Should contain platform name, got: %s", clean)
@@ -93,7 +73,7 @@ func TestParallelTracker_SingleQueuedLane(t *testing.T) {
 	}
 
 	rendered := p.Render()
-	clean := stripAnsi(rendered)
+	clean := ansi.StripAnsi(rendered)
 
 	if !strings.Contains(clean, "cassia-x2000") {
 		t.Errorf("Should contain platform name, got: %s", clean)
@@ -133,7 +113,7 @@ func TestParallelTracker_MultipleLanes(t *testing.T) {
 	}
 
 	rendered := p.Render()
-	clean := stripAnsi(rendered)
+	clean := ansi.StripAnsi(rendered)
 
 	// All platforms present
 	if !strings.Contains(clean, "node2") || !strings.Contains(clean, "moxa-uc3100") || !strings.Contains(clean, "cassia-x2000") {
@@ -171,8 +151,8 @@ func TestParallelTracker_ProgressBarStyling(t *testing.T) {
 
 	rendered := p.Render()
 	// Should have more filled than unfilled blocks at 82%
-	filled := strings.Count(stripAnsi(rendered), "█")
-	unfilled := strings.Count(stripAnsi(rendered), "░")
+	filled := strings.Count(ansi.StripAnsi(rendered), "█")
+	unfilled := strings.Count(ansi.StripAnsi(rendered), "░")
 	if filled < unfilled {
 		t.Errorf("82%% progress should have more filled than unfilled blocks (filled=%d, unfilled=%d)", filled, unfilled)
 	}
@@ -193,7 +173,7 @@ func TestParallelTracker_ZeroProgress(t *testing.T) {
 	}
 
 	rendered := p.Render()
-	clean := stripAnsi(rendered)
+	clean := ansi.StripAnsi(rendered)
 
 	if !strings.Contains(clean, "0%") {
 		t.Errorf("Zero progress should show 0%%, got: %s", clean)
@@ -223,7 +203,7 @@ func TestParallelTracker_WidthResponsive(t *testing.T) {
 	lines := strings.Split(strings.TrimSuffix(rendered, "\n"), "\n")
 
 	for _, line := range lines {
-		clean := stripAnsi(line)
+		clean := ansi.StripAnsi(line)
 		displayWidth := runewidth.StringWidth(clean)
 		if displayWidth > 42 { // Width 40 + small slack
 			t.Errorf("Line should respect width, got %d display width: %s", displayWidth, clean)
@@ -262,6 +242,8 @@ func TestParallelTracker_StatusIconMapping(t *testing.T) {
 		expectedIcon string
 	}{
 		{primitives.StatusRunning, "▶"},
+		{primitives.StatusSuccess, "✓"},
+		{primitives.StatusError, "✗"},
 		{primitives.StatusBlocked, "□"},
 		{primitives.StatusUnavailable, "□"},
 	}
@@ -281,7 +263,7 @@ func TestParallelTracker_StatusIconMapping(t *testing.T) {
 		}
 
 		rendered := p.Render()
-		clean := stripAnsi(rendered)
+		clean := ansi.StripAnsi(rendered)
 
 		if !strings.Contains(clean, tt.expectedIcon) {
 			t.Errorf("Status %v should show icon %q, got: %s", tt.status, tt.expectedIcon, clean)
@@ -304,7 +286,7 @@ func TestParallelTracker_OutputFormat(t *testing.T) {
 	}
 
 	rendered := p.Render()
-	clean := stripAnsi(rendered)
+	clean := ansi.StripAnsi(rendered)
 
 	// Expected format: "▶ node2       ████████░░ 82%  gcc-wrapper-13.2.0"
 	// Check order: icon, platform, bar, pct, current
