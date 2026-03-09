@@ -360,7 +360,7 @@ func splitStatusMessage(s string) (string, string) {
 
 func statusFromString(s string) primitives.Status {
 	switch strings.ToLower(s) {
-	case "cached", "complete", "ok":
+	case "cached", "complete", "ok", "success":
 		return primitives.StatusSuccess
 	case "downloading", "hydrating", "pending":
 		return primitives.StatusRunning
