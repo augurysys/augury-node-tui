@@ -5,6 +5,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/mattn/go-runewidth"
 	"github.com/augurysys/augury-node-tui/internal/styles"
 )
 
@@ -68,6 +69,11 @@ func (t *DataTable) SetHeight(height int) {
 	t.height = height
 }
 
+// SetWidth sets total table width
+func (t *DataTable) SetWidth(width int) {
+	t.width = width
+}
+
 // Update handles key messages for navigation
 func (t *DataTable) Update(msg tea.Msg) tea.Cmd {
 	switch msg := msg.(type) {
@@ -87,8 +93,10 @@ func (t *DataTable) Update(msg tea.Msg) tea.Cmd {
 			t.selectedIdx = 0
 			t.scrollOff = 0
 		case "G":
-			t.selectedIdx = len(t.rows) - 1
-			t.adjustScroll()
+			if len(t.rows) > 0 {
+				t.selectedIdx = len(t.rows) - 1
+				t.adjustScroll()
+			}
 		}
 	}
 	return nil
@@ -125,6 +133,10 @@ func (t *DataTable) View() string {
 	result.WriteString(strings.Join(headerCells, " │ ") + "\n")
 	result.WriteString(strings.Repeat("─", t.width) + "\n")
 
+	if len(t.rows) == 0 {
+		return result.String()
+	}
+
 	// Render visible rows (virtualization)
 	visibleRows := t.height - 2
 	if visibleRows < 1 {
@@ -140,7 +152,10 @@ func (t *DataTable) View() string {
 		var cells []string
 
 		for _, col := range t.columns {
-			content := col.Renderer(row)
+			var content string
+			if col.Renderer != nil {
+				content = col.Renderer(row)
+			}
 			cell := truncate(content, col.Width)
 
 			// Highlight selected row
@@ -168,13 +183,16 @@ func (t *DataTable) SelectedRow() interface{} {
 	return nil
 }
 
-// truncate limits string to width, adding ellipsis if needed
+// truncate limits string to display width, adding ellipsis if needed
 func truncate(s string, width int) string {
 	if width <= 0 {
 		return s
 	}
-	if len(s) <= width {
-		return s + strings.Repeat(" ", width-len(s))
+
+	displayWidth := runewidth.StringWidth(s)
+	if displayWidth <= width {
+		return s + strings.Repeat(" ", width-displayWidth)
 	}
-	return s[:width-1] + "…"
+
+	return runewidth.Truncate(s, width-1, "…")
 }

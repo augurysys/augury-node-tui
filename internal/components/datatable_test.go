@@ -106,3 +106,39 @@ func TestDataTable_Virtualization(t *testing.T) {
 		t.Errorf("Table rendered too many lines (%d), should virtualize", lineCount)
 	}
 }
+
+func TestDataTable_EmptyTablePressG(t *testing.T) {
+	columns := []Column{
+		{Header: "Name", Width: 20, Renderer: func(r interface{}) string {
+			return r.(testRow).Name
+		}},
+	}
+
+	table := NewDataTable(columns)
+	// No rows set
+
+	// Should not panic on G
+	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'G'}}
+	table.Update(msg)
+
+	// View should not panic
+	view := table.View()
+	if view == "" {
+		t.Error("View should render even with empty table")
+	}
+}
+
+func TestDataTable_NilRenderer(t *testing.T) {
+	columns := []Column{
+		{Header: "Name", Width: 20}, // No Renderer
+	}
+
+	table := NewDataTable(columns)
+	table.SetRows([]interface{}{testRow{Name: "Test"}})
+
+	// Should not panic with nil renderer
+	view := table.View()
+	if view == "" {
+		t.Error("View should render even with nil renderer")
+	}
+}
