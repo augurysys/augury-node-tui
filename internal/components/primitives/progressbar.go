@@ -34,6 +34,9 @@ func (p ProgressBar) Render() string {
 	}
 
 	filledBlocks := int(float64(barWidth) * pct / 100)
+	if filledBlocks < 0 {
+		filledBlocks = 0
+	}
 	if filledBlocks > barWidth {
 		filledBlocks = barWidth
 	}
