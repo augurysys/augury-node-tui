@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/augurysys/augury-node-tui/internal/components"
+	"github.com/augurysys/augury-node-tui/internal/components/primitives"
 	"github.com/augurysys/augury-node-tui/internal/engine"
 	"github.com/augurysys/augury-node-tui/internal/platform"
 	"github.com/augurysys/augury-node-tui/internal/status"
@@ -13,36 +15,174 @@ import (
 )
 
 const (
-	TabBuildUnit  = 0
-	TabPlatform   = 1
-	TabCount      = 2
+	TabBuildUnit = 0
+	TabPlatform  = 1
+	TabCount     = 2
 )
 
+// CacheEntry represents a single cache row for the DataTable.
+type CacheEntry struct {
+	PlatformID    string
+	PlatformLabel string
+	OutputPath    string
+	Type          string
+	LocalState    string
+	LocalPresent  bool
+	RemoteState   string
+	RemotePresent bool
+	Size          string
+}
+
 type Model struct {
-	Status              status.RepoStatus
-	Platforms           []platform.Platform
-	nixState            engine.NixState
-	activeTab           int
-	selectedIndex       int
-	disabledReason      string
-	confirmShown        bool
-	pendingConfirmReq   engine.ActionRequest
-	rowStatus           map[string]string
-	Width               int
+	Status            status.RepoStatus
+	Platforms         []platform.Platform
+	nixState          engine.NixState
+	activeTab         int
+	disabledReason    string
+	confirmShown       bool
+	pendingConfirmReq  engine.ActionRequest
+	rowStatus         map[string]string
+	Width             int
+	Height            int
+	cacheTable        *components.DataTable
+	metricsBar        components.MetricsBar
 }
 
 func NewModel(st status.RepoStatus, platforms []platform.Platform) *Model {
-	return &Model{
+	m := &Model{
 		Status:        st,
 		Platforms:     platforms,
 		nixState:      engine.ProbeNix(st.Root),
 		activeTab:     TabBuildUnit,
-		selectedIndex: 0,
 		rowStatus:     make(map[string]string),
+		metricsBar:    components.MetricsBar{},
+	}
+	m.initCacheTable()
+	return m
+}
+
+func (m *Model) initCacheTable() {
+	columns := []components.Column{
+		{Header: "Platform", Width: 20, Sortable: true, Renderer: m.renderPlatform},
+		{Header: "Type", Width: 15, Sortable: true, Renderer: m.renderCacheType},
+		{Header: "Local", Width: 10, Sortable: true, Renderer: m.renderLocalState},
+		{Header: "Remote", Width: 10, Sortable: true, Renderer: m.renderRemoteState},
+		{Header: "Size", Width: 12, Sortable: true, Align: components.AlignRight, Renderer: m.renderSize},
+		{Header: "Actions", Width: -1, Sortable: false, Renderer: m.renderActions},
+	}
+	m.cacheTable = components.NewDataTable(columns)
+	m.cacheTable.SetRows(m.fetchCacheData())
+}
+
+func (m *Model) renderPlatform(row interface{}) string {
+	return row.(CacheEntry).PlatformLabel
+}
+
+func (m *Model) renderCacheType(row interface{}) string {
+	return row.(CacheEntry).Type
+}
+
+func (m *Model) renderLocalState(row interface{}) string {
+	cache := row.(CacheEntry)
+	st := primitives.StatusSuccess
+	if !cache.LocalPresent {
+		st = primitives.StatusUnavailable
+	}
+	return primitives.StatusBadge{Label: cache.LocalState, Status: st}.Render()
+}
+
+func (m *Model) renderRemoteState(row interface{}) string {
+	cache := row.(CacheEntry)
+	st := primitives.StatusSuccess
+	if !cache.RemotePresent {
+		st = primitives.StatusUnavailable
+	}
+	return primitives.StatusBadge{Label: cache.RemoteState, Status: st}.Render()
+}
+
+func (m *Model) renderSize(row interface{}) string {
+	return row.(CacheEntry).Size
+}
+
+func (m *Model) renderActions(row interface{}) string {
+	if m.activeTab == TabBuildUnit {
+		return "B=build R=pull D=delete"
+	}
+	return "P=pull U=push X=clean"
+}
+
+func (m *Model) fetchCacheData() []interface{} {
+	var entries []CacheEntry
+	if m.activeTab == TabBuildUnit {
+		for _, p := range m.Platforms {
+			entries = append(entries, m.cacheEntryForPlatform(p, "build-unit"))
+		}
+		entries = append(entries, m.cacheEntryForGlobal())
+	} else {
+		for _, p := range m.Platforms {
+			entries = append(entries, m.cacheEntryForPlatform(p, "platform"))
+		}
+	}
+	rows := make([]interface{}, len(entries))
+	for i, e := range entries {
+		rows[i] = e
+	}
+	return rows
+}
+
+func (m *Model) cacheEntryForGlobal() CacheEntry {
+	s := m.rowStatus["global"]
+	if s == "" {
+		s = "pending"
+	}
+	localPresent := strings.HasPrefix(strings.ToLower(s), "cached") ||
+		strings.HasPrefix(strings.ToLower(s), "success") ||
+		strings.HasPrefix(strings.ToLower(s), "complete")
+	return CacheEntry{
+		PlatformID:    "",
+		PlatformLabel: "Global",
+		OutputPath:    "",
+		Type:          "build-unit",
+		LocalState:    primaryStatus(s),
+		LocalPresent:  localPresent,
+		RemoteState:   "-",
+		RemotePresent: false,
+		Size:          "-",
 	}
 }
 
+func (m *Model) cacheEntryForPlatform(p platform.Platform, cacheType string) CacheEntry {
+	s := m.rowStatus[p.ID]
+	if s == "" {
+		s = "pending"
+	}
+	localPresent := strings.HasPrefix(strings.ToLower(s), "cached") ||
+		strings.HasPrefix(strings.ToLower(s), "success") ||
+		strings.HasPrefix(strings.ToLower(s), "complete")
+	return CacheEntry{
+		PlatformID:    p.ID,
+		PlatformLabel: p.ID,
+		OutputPath:    p.OutputRelPath,
+		Type:          cacheType,
+		LocalState:    primaryStatus(s),
+		LocalPresent:  localPresent,
+		RemoteState:   "-",
+		RemotePresent: false,
+		Size:          "-",
+	}
+}
+
+func primaryStatus(s string) string {
+	s = strings.TrimSpace(s)
+	if idx := strings.Index(s, ": "); idx >= 0 {
+		return s[:idx]
+	}
+	return s
+}
+
 func (m *Model) Init() tea.Cmd {
+	m.initCacheTable()
+	_ = m.metricsBar.FetchMetrics()
 	return nil
 }
 
@@ -63,23 +203,19 @@ func (m *Model) PendingConfirmAction() engine.ActionRequest {
 }
 
 func (m *Model) selectedPlatformID() string {
-	if len(m.Platforms) == 0 {
+	row := m.cacheTable.SelectedRow()
+	if row == nil {
 		return ""
 	}
-	i := m.selectedIndex
-	if i < 0 {
-		i = 0
-	}
-	if i >= len(m.Platforms) {
-		i = len(m.Platforms) - 1
-	}
-	return m.Platforms[i].ID
+	return row.(CacheEntry).PlatformID
 }
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.Width = msg.Width
+		m.Height = msg.Height
+		m.metricsBar.Width = msg.Width
 		return m, nil
 	case tea.KeyMsg:
 		k := msg.String()
@@ -100,8 +236,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.disabledReason = ""
 		if k == "tab" || k == "t" {
 			m.NextTab()
+			m.cacheTable.SetRows(m.fetchCacheData())
 			return m, nil
 		}
+		m.cacheTable.Update(msg)
 		platID := m.selectedPlatformID()
 		req, ok := ActionForKey(m.activeTab, k, platID)
 		if !ok {
@@ -124,6 +262,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.dispatchAction(req)
 	case jobResultMsg:
 		m.handleJobResult(msg.Job, msg.Request)
+		m.cacheTable.SetRows(m.fetchCacheData())
 		return m, nil
 	}
 	return m, nil
@@ -178,6 +317,8 @@ func (m *Model) RowStatus(platformID string) string {
 
 func (m *Model) View() string {
 	var b strings.Builder
+	b.WriteString(m.metricsBar.Render())
+	b.WriteString("\n")
 	if m.Width >= diagram.MinDiagramWidth {
 		b.WriteString(diagram.CacheTopology(m.activeTab))
 		b.WriteString("\n")
@@ -192,15 +333,13 @@ func (m *Model) View() string {
 		return b.String()
 	}
 	b.WriteString("Build-unit: B=build R=pull D=delete | Platform: P=pull U=push X=clean\n")
-	if s := m.rowStatus["global"]; s != "" {
-		b.WriteString(fmt.Sprintf("Global: [%s]\n", s))
+	m.cacheTable.SetWidth(m.Width)
+	if m.Height > 0 {
+		m.cacheTable.SetHeight(m.Height)
+	} else {
+		m.cacheTable.SetHeight(20)
 	}
-	for _, p := range m.Platforms {
-		line := fmt.Sprintf("  %s -> %s", p.ID, p.OutputRelPath)
-		if s := m.rowStatus[p.ID]; s != "" {
-			line += " [" + s + "]"
-		}
-		b.WriteString(line + "\n")
-	}
+	m.cacheTable.SetRows(m.fetchCacheData())
+	b.WriteString(m.cacheTable.View())
 	return b.String()
 }
