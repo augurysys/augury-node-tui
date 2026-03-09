@@ -28,7 +28,8 @@ func (m *SuccessStepModel) Init() tea.Cmd {
 func (m *SuccessStepModel) Update(msg tea.Msg) (*SuccessStepModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		if msg.Type == tea.KeyEnter {
+		switch msg.String() {
+		case "q", "ctrl+c", "enter":
 			return m, tea.Quit
 		}
 	}

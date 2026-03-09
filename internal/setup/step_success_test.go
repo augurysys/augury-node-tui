@@ -35,6 +35,15 @@ func TestStepSuccess_QuitOnEnter(t *testing.T) {
 	// Note: can't easily test tea.Quit here, but verify cmd is not nil
 }
 
+func TestStepSuccess_QuitOnQ(t *testing.T) {
+	step := NewSuccessStep([]string{})
+	step, cmd := step.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+
+	if cmd == nil {
+		t.Fatal("q key should return quit command")
+	}
+}
+
 func TestSuccessStep_UsesCardComponent(t *testing.T) {
 	step := NewSuccessStep([]string{})
 	view := step.View()
