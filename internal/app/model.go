@@ -117,6 +117,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if hyd, _ := m.hydrate.Update(msg); hyd != nil {
 			m.hydrate = hyd.(*hydration.Model)
 		}
+		if bm, _ := m.build.Update(msg); bm != nil {
+			m.build = bm.(*build.Model)
+		}
 	}
 
 	switch m.route {

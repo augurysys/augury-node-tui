@@ -7,13 +7,16 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/augurysys/augury-node-tui/internal/components"
+	"github.com/augurysys/augury-node-tui/internal/components/primitives"
 	"github.com/augurysys/augury-node-tui/internal/engine"
-	"github.com/augurysys/augury-node-tui/internal/logs"
 	"github.com/augurysys/augury-node-tui/internal/nav"
 	"github.com/augurysys/augury-node-tui/internal/platform"
 	"github.com/augurysys/augury-node-tui/internal/run"
 	"github.com/augurysys/augury-node-tui/internal/status"
+	"github.com/augurysys/augury-node-tui/internal/styles"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 type ConfirmPlanMsg struct{}
@@ -25,34 +28,33 @@ type BuildCompleteMsg struct {
 	Summary *Summary
 }
 
-const errorContextBefore = 5
-const errorContextAfter = 5
-
 type Model struct {
-	Status          status.RepoStatus
-	Platforms       []platform.Platform
-	Selected        map[string]bool
-	nixState        engine.NixState
+	Status           status.RepoStatus
+	Platforms        []platform.Platform
+	Selected         map[string]bool
+	nixState         engine.NixState
 	nixBlockedReason string
-	Mode            run.Mode
-	ForceRebuild    map[string]bool
+	Mode             run.Mode
+	ForceRebuild     map[string]bool
 	Summary         *Summary
 	BuildCancel     context.CancelFunc
 	Focused         int
-	LogTab          string
-	LogScrollOffset map[string]int
+	Width           int
+	Height          int
+	parallelTracker components.ParallelTracker
+	metricsBar      components.MetricsBar
+	commandDisplay  components.CommandDisplay
+	logViewer       *components.LogViewer
 }
 
 func NewModel(st status.RepoStatus, platforms []platform.Platform, selected map[string]bool) *Model {
 	m := &Model{
-		Status:          st,
-		Platforms:       platforms,
-		Selected:        selected,
-		nixState:        engine.ProbeNix(st.Root),
-		Mode:            run.ModeSmart,
-		ForceRebuild:    make(map[string]bool),
-		LogTab:          "full",
-		LogScrollOffset: make(map[string]int),
+		Status:       st,
+		Platforms:    platforms,
+		Selected:     selected,
+		nixState:     engine.ProbeNix(st.Root),
+		Mode:         run.ModeSmart,
+		ForceRebuild: make(map[string]bool),
 	}
 	if m.Selected == nil {
 		m.Selected = make(map[string]bool)
@@ -70,35 +72,27 @@ func (m *Model) Init() tea.Cmd {
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.Width = msg.Width
+		m.Height = msg.Height
+		m.updateComponentDimensions()
+		return m, nil
 	case tea.KeyMsg:
 		s := msg.String()
-		if m.Summary != nil && m.focusedLogPlatformID() != "" {
-			pid := m.focusedLogPlatformID()
-			switch s {
-			case "t", "tab":
-				m.resetScrollForPlatform(pid)
-				if m.LogTab == "full" {
-					m.LogTab = "error"
-				} else {
-					m.LogTab = "full"
+		if m.Summary != nil && len(m.Summary.Rows) > 0 {
+			if m.logViewer != nil {
+				switch s {
+				case "]": // next platform
+					m.Focused++
+					m.syncLogViewerContent()
+					return m, nil
+				case "[": // prev platform
+					m.Focused--
+					m.syncLogViewerContent()
+					return m, nil
+				case "j", "k", "down", "up", "pgup", "pgdown", "e", "n", "N":
+					return m, m.logViewer.Update(msg)
 				}
-				return m, nil
-			case "e":
-				m.resetScrollForPlatform(pid)
-				m.LogTab = "error"
-				return m, nil
-			case "j", "down":
-				m.adjustScroll(pid, 1)
-				return m, nil
-			case "k", "up":
-				m.adjustScroll(pid, -1)
-				return m, nil
-			case "pgup":
-				m.adjustScroll(pid, -10)
-				return m, nil
-			case "pgdown":
-				m.adjustScroll(pid, 10)
-				return m, nil
 			}
 		}
 		switch s {
@@ -154,6 +148,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case BuildCompleteMsg:
 		m.Summary = msg.Summary
 		m.BuildCancel = nil
+		m.initLogViewer()
+		if m.logViewer != nil {
+			return m, m.logViewer.Init()
+		}
 		return m, nil
 	case CancelBuildMsg:
 		if m.BuildCancel != nil {
@@ -191,51 +189,76 @@ func (m *Model) logContentForPlatform(platformID string) string {
 	return string(data)
 }
 
-func (m *Model) displayLogContent(platformID string) string {
-	raw := m.logContentForPlatform(platformID)
-	if m.LogTab == "error" {
-		lineIdx, ok := logs.FindFirstErrorLine(raw)
-		if !ok {
-			return raw
+func (m *Model) summaryRowsToBuildLanes() []components.BuildLane {
+	if m.Summary == nil {
+		return nil
+	}
+	lanes := make([]components.BuildLane, len(m.Summary.Rows))
+	for i, r := range m.Summary.Rows {
+		st := primitives.StatusSuccess
+		progress := 1.0
+		switch r.Status {
+		case RowStatusSuccess:
+			st = primitives.StatusSuccess
+		case RowStatusFailure:
+			st = primitives.StatusError
+		case RowStatusSkipped:
+			st = primitives.StatusUnavailable
+			progress = 0
+		case RowStatusCancelled:
+			st = primitives.StatusBlocked
+			progress = 0
+		default:
+			st = primitives.StatusUnavailable
 		}
-		return logs.ExtractContextAround(raw, lineIdx, errorContextBefore, errorContextAfter)
+		lanes[i] = components.BuildLane{
+			Platform: r.PlatformID,
+			Progress: progress,
+			Status:   st,
+			Current:  string(r.Status),
+		}
 	}
-	return raw
+	return lanes
 }
 
-func (m *Model) resetScrollForPlatform(platformID string) {
-	if m.LogScrollOffset == nil {
-		m.LogScrollOffset = make(map[string]int)
+func (m *Model) initLogViewer() {
+	pid := m.focusedLogPlatformID()
+	if pid == "" {
+		return
 	}
-	m.LogScrollOffset[platformID] = 0
+	content := m.logContentForPlatform(pid)
+	m.logViewer = components.NewLogViewer(content)
 }
 
-func (m *Model) scrollOffsetForPlatform(platformID string) int {
-	if m.LogScrollOffset == nil {
-		return 0
+func (m *Model) syncLogViewerContent() {
+	if m.logViewer == nil {
+		return
 	}
-	return m.LogScrollOffset[platformID]
+	pid := m.focusedLogPlatformID()
+	if pid == "" {
+		return
+	}
+	content := m.logContentForPlatform(pid)
+	m.logViewer.SetContent(content)
 }
 
-func (m *Model) adjustScroll(platformID string, delta int) {
-	if m.LogScrollOffset == nil {
-		m.LogScrollOffset = make(map[string]int)
+func (m *Model) updateComponentDimensions() {
+	if m.Width <= 0 {
+		return
 	}
-	content := m.displayLogContent(platformID)
-	lines := strings.Split(content, "\n")
-	maxScroll := 0
-	if len(lines) > 1 {
-		maxScroll = len(lines) - 1
+	leftWidth := (m.Width * 3) / 10
+	middleWidth := (m.Width * 3) / 10
+	rightWidth := m.Width - leftWidth - middleWidth - 2
+
+	m.parallelTracker.Width = leftWidth
+	m.parallelTracker.Height = m.Height
+	m.metricsBar.Width = middleWidth
+	if m.logViewer != nil {
+		m.logViewer.SetWidth(rightWidth)
+		if m.Height > 0 {
+			m.logViewer.SetHeight(m.Height - 2)
+		}
 	}
-	cur := m.LogScrollOffset[platformID]
-	cur += delta
-	if cur < 0 {
-		cur = 0
-	}
-	if cur > maxScroll {
-		cur = maxScroll
-	}
-	m.LogScrollOffset[platformID] = cur
 }
 
 func (m *Model) View() string {
@@ -246,34 +269,79 @@ func (m *Model) View() string {
 }
 
 func (m *Model) viewLogResults() string {
-	var b strings.Builder
+	if m.logViewer == nil && len(m.Summary.Rows) > 0 {
+		m.initLogViewer()
+	}
+	if m.Width <= 0 {
+		m.Width = 80
+	}
+	if m.Height <= 0 {
+		m.Height = 24
+	}
+	m.updateComponentDimensions()
+
+	leftWidth := (m.Width * 3) / 10
+	middleWidth := (m.Width * 3) / 10
+	rightWidth := m.Width - leftWidth - middleWidth - 2
+
+	m.parallelTracker.Lanes = m.summaryRowsToBuildLanes()
+	leftPane := m.parallelTracker.Render()
+
 	pid := m.focusedLogPlatformID()
-	b.WriteString("Build results | t/tab switch full/error | e jump to error | j/k pgup/pgdown scroll | Esc/b back\n")
-	b.WriteString(fmt.Sprintf("tab: %s | platform: %s\n", m.LogTab, pid))
-	for _, r := range m.Summary.Rows {
-		cur := " "
-		if r.PlatformID == pid {
-			cur = ">"
+	m.metricsBar.FetchMetrics()
+	m.commandDisplay = m.buildCommandDisplay(pid)
+	middlePane := lipgloss.JoinVertical(lipgloss.Left,
+		m.metricsBar.Render(),
+		"",
+		m.commandDisplay.Render(),
+	)
+
+	var rightPane string
+	if m.logViewer != nil {
+		rightPane = m.logViewer.View()
+	} else {
+		rightPane = "(no log)"
+	}
+
+	border := styles.Border
+	return lipgloss.JoinHorizontal(lipgloss.Top,
+		border.Width(leftWidth).Render(leftPane),
+		border.Width(middleWidth).Render(middlePane),
+		border.Width(rightWidth).Render(rightPane),
+	)
+}
+
+func (m *Model) buildCommandDisplay(platformID string) components.CommandDisplay {
+	cd := components.CommandDisplay{
+		Command:   "",
+		Executing: false,
+	}
+	if platformID == "" {
+		return cd
+	}
+	for _, p := range m.Platforms {
+		if p.ID == platformID {
+			scriptPath := filepath.Join(m.Status.Root, p.ScriptRelPath)
+			cd.Command = "sh " + scriptPath
+			break
 		}
-		b.WriteString(fmt.Sprintf(" %s %s %s\n", cur, r.PlatformID, r.Status))
 	}
-	content := m.displayLogContent(pid)
-	lines := strings.Split(content, "\n")
-	offset := m.scrollOffsetForPlatform(pid)
-	if offset >= len(lines) {
-		offset = 0
-		if m.LogScrollOffset == nil {
-			m.LogScrollOffset = make(map[string]int)
+	if m.Summary != nil {
+		for _, r := range m.Summary.Rows {
+			if r.PlatformID == platformID {
+				switch r.Status {
+				case RowStatusSuccess:
+					exit0 := 0
+					cd.ExitCode = &exit0
+				case RowStatusFailure:
+					exit1 := 1
+					cd.ExitCode = &exit1
+				}
+				break
+			}
 		}
-		m.LogScrollOffset[pid] = offset
 	}
-	visible := lines[offset:]
-	b.WriteString("--- log ---\n")
-	b.WriteString(strings.Join(visible, "\n"))
-	if len(visible) == 0 && content != "" {
-		b.WriteString("(scroll up)")
-	}
-	return b.String()
+	return cd
 }
 
 func (m *Model) viewPreflightPlan() string {
