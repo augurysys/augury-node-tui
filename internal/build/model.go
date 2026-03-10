@@ -282,11 +282,73 @@ func (m *Model) updateComponentDimensions() {
 	}
 }
 
-func (m *Model) View() string {
+func (m *Model) isBuilding() bool {
+	return m.BuildCancel != nil
+}
+
+func (m *Model) hasFailed() bool {
+	if m.Summary == nil {
+		return false
+	}
+	for _, r := range m.Summary.Rows {
+		if r.Status == RowStatusFailure {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *Model) selectedPlatformCount() int {
+	var n int
+	for _, v := range m.Selected {
+		if v {
+			n++
+		}
+	}
+	return n
+}
+
+func (m *Model) buildActionKeys() []components.KeyBinding {
+	var keys []components.KeyBinding
+
+	// Dynamic based on build state
+	if m.isBuilding() {
+		keys = append(keys, components.KeyBinding{Key: "c", Label: "cancel"})
+	} else if m.hasFailed() {
+		keys = append(keys, components.KeyBinding{Key: "r", Label: "retry"})
+	}
+
+	return keys
+}
+
+func (m *Model) buildContext() string {
+	if m.isBuilding() {
+		return fmt.Sprintf("%s  •  building %d platforms", m.Status.Branch, m.selectedPlatformCount())
+	}
+	return m.Status.Branch
+}
+
+func (m *Model) renderContent() string {
 	if m.Summary != nil && len(m.Summary.Rows) > 0 {
 		return m.viewLogResults()
 	}
 	return m.viewPreflightPlan()
+}
+
+func (m *Model) View() string {
+	layout := components.ScreenLayout{
+		Breadcrumb: []string{"🚀 Home", "Build"},
+		Context:    m.buildContext(),
+		Content:    m.renderContent(),
+		ActionKeys: m.buildActionKeys(),
+		NavKeys: []components.KeyBinding{
+			{Key: "esc", Label: "back"},
+			{Key: "q", Label: "quit"},
+		},
+		Width:  m.Width,
+		Height: m.Height,
+	}
+	return layout.Render()
 }
 
 func (m *Model) viewLogResults() string {
