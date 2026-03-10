@@ -313,8 +313,8 @@ func TestHydrationScreen_UsesComponents(t *testing.T) {
 
 	view := m.View()
 
-	// Should use DataTable (column separators │ or ║)
-	if !strings.Contains(view, "│") && !strings.Contains(view, "║") {
+	// Should use DataTable (column separators)
+	if !strings.Contains(view, "│") {
 		t.Error("Hydration screen should use DataTable")
 	}
 

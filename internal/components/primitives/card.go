@@ -34,46 +34,36 @@ func (c Card) Render(width int) string {
 	var border lipgloss.Border
 	var borderColor string
 	var padding int
-	var bgColor string
 
 	switch c.Style {
 	case CardCompact:
 		border = borders.Thin
 		borderColor = palette.Overlay0
 		padding = 0
-		bgColor = ""
 	case CardEmphasized:
 		border = borders.Thick
 		borderColor = palette.AccentMauve
-		padding = 2
-		bgColor = palette.Surface0
+		padding = 1
 	default: // CardNormal
-		border = borders.Double
-		borderColor = palette.Overlay0
-		padding = 2
-		bgColor = palette.Surface0
+		border = borders.Thin
+		borderColor = palette.Text
+		padding = 1
 	}
 
 	style := lipgloss.NewStyle().
 		Border(border).
 		BorderForeground(lipgloss.Color(borderColor)).
 		Width(width - 2). // Account for borders
-		Padding(1, padding) // Vertical padding for breathing room
-
-	if bgColor != "" {
-		style = style.Background(lipgloss.Color(bgColor))
-	}
+		Padding(0, padding)
 
 	// Word-wrap content
-	contentWidth := width - 2 - padding*2
-	wrapped := wordWrap(c.Content, contentWidth)
+	wrapped := wordWrap(c.Content, width-4-padding*2) // Account for borders + padding
 
-	// Combine title and content - title centered and bold
+	// Combine title and content
 	var content string
 	if c.Title != "" {
-		titleStyle := typo.Section.Copy().Bold(true)
-		titleLine := titleStyle.Render(c.Title)
-		content = lipgloss.PlaceHorizontal(contentWidth, lipgloss.Center, titleLine) + "\n" + wrapped
+		titleLine := typo.Section.Render(c.Title)
+		content = titleLine + "\n" + wrapped
 	} else {
 		content = wrapped
 	}

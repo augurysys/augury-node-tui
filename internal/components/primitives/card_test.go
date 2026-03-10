@@ -22,9 +22,8 @@ func TestCard_RenderWithTitle(t *testing.T) {
 	if !strings.Contains(rendered, "This is content") {
 		t.Error("Card should contain content")
 	}
-	// Should have border characters (single-line ─┌ or double-line ═╔)
-	if !strings.Contains(rendered, "─") && !strings.Contains(rendered, "┌") &&
-		!strings.Contains(rendered, "═") && !strings.Contains(rendered, "╔") {
+	// Should have border characters
+	if !strings.Contains(rendered, "─") && !strings.Contains(rendered, "┌") {
 		t.Error("Card should have borders")
 	}
 }
@@ -61,10 +60,9 @@ func TestCard_StyleVariants(t *testing.T) {
 		t.Error("Compact style should not have more lines than normal")
 	}
 
-	// Emphasized should be visually distinct (different border color and/or style)
+	// Emphasized should be visually distinct (test by rendering)
 	empRender := emphasized.Render(40)
-	normRender := normal.Render(40)
-	if empRender == normRender {
+	if empRender == normal.Render(40) {
 		t.Error("Emphasized style should differ from normal")
 	}
 }

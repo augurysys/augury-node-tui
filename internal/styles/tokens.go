@@ -17,12 +17,10 @@ type Palette struct {
 	Info    string // #89B4FA (blue)
 
 	// Accent colors (categorical mapping)
-	AccentPink   string // #F5C2E7 (platforms)
-	AccentMauve  string // #CBA6F7 (builds)
-	AccentPeach  string // #FAB387 (caches)
-	AccentTeal   string // #94E2D5 (validations)
-	AccentBlue   string // #89B4FA (selection, links)
-	AccentLavender string // #B4BEFE (table headers)
+	AccentPink  string // #F5C2E7 (platforms)
+	AccentMauve string // #CBA6F7 (builds)
+	AccentPeach string // #FAB387 (caches)
+	AccentTeal  string // #94E2D5 (validations)
 }
 
 // DefaultPalette returns Catppuccin Mocha palette
@@ -38,12 +36,10 @@ func DefaultPalette() Palette {
 		Error:   "#F38BA8",
 		Info:    "#89B4FA",
 
-		AccentPink:       "#F5C2E7",
-		AccentMauve:      "#CBA6F7",
-		AccentPeach:      "#FAB387",
-		AccentTeal:       "#94E2D5",
-		AccentBlue:       "#89B4FA",
-		AccentLavender:   "#B4BEFE",
+		AccentPink:  "#F5C2E7",
+		AccentMauve: "#CBA6F7",
+		AccentPeach: "#FAB387",
+		AccentTeal:  "#94E2D5",
 	}
 }
 
@@ -70,19 +66,17 @@ func DefaultTypography() Typography {
 
 // Borders defines border styles
 type Borders struct {
-	Thick  lipgloss.Border
-	Thin   lipgloss.Border
-	Double lipgloss.Border
-	None   lipgloss.Border
+	Thick lipgloss.Border
+	Thin  lipgloss.Border
+	None  lipgloss.Border
 }
 
 // DefaultBorders returns standard border styles
 func DefaultBorders() Borders {
 	return Borders{
-		Thick:  lipgloss.ThickBorder(),
-		Thin:   lipgloss.NormalBorder(),
-		Double: lipgloss.DoubleBorder(),
-		None:   lipgloss.Border{},
+		Thick: lipgloss.ThickBorder(),
+		Thin:  lipgloss.NormalBorder(),
+		None:  lipgloss.Border{},
 	}
 }
 

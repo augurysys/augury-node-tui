@@ -218,6 +218,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.Width = msg.Width
 		m.Height = msg.Height
 		m.metricsBar.Width = msg.Width
+		m.cacheTable.SetWidth(m.Width)
+		if m.Height > 0 {
+			m.cacheTable.SetHeight(m.Height)
+		} else {
+			m.cacheTable.SetHeight(20)
+		}
 		return m, nil
 	case tea.KeyMsg:
 		k := msg.String()
