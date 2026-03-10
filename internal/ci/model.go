@@ -305,7 +305,55 @@ func formatDuration(d time.Duration) string {
 	return fmt.Sprintf("%d:%02d", m, s)
 }
 
+func (m *Model) buildActionKeys() []components.KeyBinding {
+	var keys []components.KeyBinding
+
+	switch m.state {
+	case stateReady:
+		keys = append(keys, components.KeyBinding{Key: "enter", Label: "view log"})
+		keys = append(keys, components.KeyBinding{Key: "r", Label: "refresh"})
+	case stateViewing:
+		// LogViewer has its own keybindings
+	case stateError:
+		keys = append(keys, components.KeyBinding{Key: "r", Label: "retry"})
+	}
+
+	return keys
+}
+
+func (m *Model) buildContext() string {
+	parts := []string{m.branch}
+
+	if m.pipeline != nil {
+		parts = append(parts, "workflow running")
+	}
+
+	return strings.Join(parts, "  •  ")
+}
+
 func (m *Model) View() string {
+	// Keep full-screen LogViewer as-is
+	if m.state == stateViewing && m.logViewer != nil {
+		return m.logViewer.View()
+	}
+
+	layout := components.ScreenLayout{
+		Breadcrumb: []string{"🚀 Home", "Pipeline"},
+		Context:    m.buildContext(),
+		Content:    m.renderContent(),
+		ActionKeys: m.buildActionKeys(),
+		NavKeys: []components.KeyBinding{
+			{Key: "j/k", Label: "navigate"},
+			{Key: "esc", Label: "back"},
+			{Key: "q", Label: "quit"},
+		},
+		Width:  m.Width,
+		Height: m.Height,
+	}
+	return layout.Render()
+}
+
+func (m *Model) renderContent() string {
 	switch m.state {
 	case stateNoToken:
 		return m.viewNoToken()
@@ -315,8 +363,6 @@ func (m *Model) View() string {
 		return m.viewReady()
 	case stateDownloading:
 		return m.viewDownloading()
-	case stateViewing:
-		return m.viewLogs()
 	case stateError:
 		return m.viewError()
 	default:
@@ -325,25 +371,17 @@ func (m *Model) View() string {
 }
 
 func (m *Model) viewNoToken() string {
-	title := styles.Title.Render("CI Pipeline")
-	msg := styles.Warning.Render(
+	return styles.Warning.Render(
 		"No CircleCI token configured.\n\n" +
 			"Set CIRCLE_TOKEN environment variable or run setup wizard.")
-	keys := styles.KeyHelp.Render(styles.KeyBinding("esc", "back"))
-	return lipgloss.JoinVertical(lipgloss.Left, title, "", msg, "", keys)
 }
 
 func (m *Model) viewLoading() string {
-	title := styles.Title.Render("CI Pipeline")
-	msg := styles.Dim.Render("Loading pipeline for " + m.branch + "...")
-	return lipgloss.JoinVertical(lipgloss.Left, title, "", msg)
+	return styles.Dim.Render("Loading pipeline for " + m.branch + "...")
 }
 
 func (m *Model) viewReady() string {
 	var sections []string
-
-	title := styles.Title.Render("CI Pipeline")
-	sections = append(sections, title)
 
 	if m.pipeline != nil {
 		header := primitives.Card{
@@ -365,42 +403,15 @@ func (m *Model) viewReady() string {
 		sections = append(sections, m.jobsTable.View())
 	}
 
-	keys := []string{
-		styles.KeyBinding("enter", "view logs"),
-		styles.KeyBinding("r", "refresh"),
-		styles.KeyBinding("esc", "back"),
-	}
-	sections = append(sections, styles.KeyHelp.Render(strings.Join(keys, "  ")))
-
 	return lipgloss.JoinVertical(lipgloss.Left, sections...)
 }
 
 func (m *Model) viewDownloading() string {
-	title := styles.Title.Render("CI Pipeline")
-	msg := styles.Dim.Render("Downloading log...")
-	return lipgloss.JoinVertical(lipgloss.Left, title, "", msg)
-}
-
-func (m *Model) viewLogs() string {
-	title := styles.Title.Render(fmt.Sprintf("Log: %s", m.viewingJob))
-	var content string
-	if m.logViewer != nil {
-		content = m.logViewer.View()
-	}
-	keys := styles.KeyHelp.Render(
-		styles.KeyBinding("esc", "back") + "  " +
-			styles.KeyBinding("e", "first error") + "  " +
-			styles.KeyBinding("n/N", "next/prev error"))
-	return lipgloss.JoinVertical(lipgloss.Left, title, content, keys)
+	return styles.Dim.Render("Downloading log...")
 }
 
 func (m *Model) viewError() string {
-	title := styles.Title.Render("CI Pipeline")
-	msg := styles.Error.Render("Error: " + m.errMsg)
-	keys := styles.KeyHelp.Render(
-		styles.KeyBinding("r", "retry") + "  " +
-			styles.KeyBinding("esc", "back"))
-	return lipgloss.JoinVertical(lipgloss.Left, title, "", msg, "", keys)
+	return styles.Error.Render("Error: " + m.errMsg)
 }
 
 func shortSHA(sha string) string {
