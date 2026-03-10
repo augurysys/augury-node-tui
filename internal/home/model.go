@@ -111,6 +111,7 @@ func (m *Model) buildActionKeys() []components.KeyBinding {
 	}
 
 	keys = append(keys, components.KeyBinding{Key: "a", Label: "replay"})
+	keys = append(keys, components.KeyBinding{Key: "r", Label: "refresh"})
 	keys = append(keys, components.KeyBinding{Key: "c", Label: "caches"})
 	keys = append(keys, components.KeyBinding{Key: "v", Label: "validations"})
 	keys = append(keys, components.KeyBinding{Key: "o", Label: "hints"})
