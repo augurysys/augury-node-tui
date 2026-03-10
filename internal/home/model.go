@@ -102,10 +102,6 @@ func (m *Model) renderOutputPath(row interface{}) string {
 	return row.(PlatformEntry).OutputPath
 }
 
-// fetchPlatformData converts platforms to table rows.
-// Note: Platform table is refreshed only on toggle. If DeveloperDownloads changes
-// externally (e.g. after build/hydrate), the table state will be stale until the
-// next toggle or refresh.
 func (m *Model) buildActionKeys() []components.KeyBinding {
 	var keys []components.KeyBinding
 
@@ -136,6 +132,10 @@ func (m *Model) countSelected() int {
 	return count
 }
 
+// fetchPlatformData converts platforms to table rows.
+// Note: Platform table is refreshed only on toggle. If DeveloperDownloads changes
+// externally (e.g. after build/hydrate), the table state will be stale until the
+// next toggle or refresh.
 func (m *Model) fetchPlatformData() []interface{} {
 	rows := make([]interface{}, 0, len(m.Platforms))
 	for _, p := range m.Platforms {
