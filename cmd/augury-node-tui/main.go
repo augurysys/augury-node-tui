@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/augurysys/augury-node-tui/internal/app"
+	"github.com/augurysys/augury-node-tui/internal/config"
 	"github.com/augurysys/augury-node-tui/internal/platform"
 	"github.com/augurysys/augury-node-tui/internal/setup"
 	"github.com/augurysys/augury-node-tui/internal/status"
@@ -20,14 +21,24 @@ func main() {
 		return
 	}
 
+	rootFlag := flag.String("root", "", "path to augury-node repository")
+	flag.Parse()
+
+	var configPath string
+	if cfgPathStr, err := config.DefaultPath(); err == nil {
+		if cfg, err := config.Read(cfgPathStr); err == nil {
+			configPath = cfg.AuguryNodeRoot
+		}
+	}
+
 	cwd, err := os.Getwd()
 	if err != nil {
 		cwd = "."
 	}
-	root, err := workspace.ResolveRoot("", "", cwd)
+	root, err := workspace.ResolveRoot(*rootFlag, configPath, cwd)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "augury-node-tui: %v\n", err)
-		fmt.Fprintf(os.Stderr, "Run from an augury-node repo or pass --root.\n")
+		fmt.Fprintf(os.Stderr, "Run from an augury-node repo, configure via 'augury-node-tui setup', or pass --root.\n")
 		os.Exit(1)
 	}
 	st, err := status.Collect(root)

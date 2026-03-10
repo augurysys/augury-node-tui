@@ -9,12 +9,13 @@ TUI for augury-node builds.
 go build -o augury-node-tui ./cmd/augury-node-tui
 
 # 2. First-time setup: run the setup wizard
-augury-node-tui setup
+./augury-node-tui setup
 
-# 3. Run from augury-node workspace
-cd /path/to/augury-node
-nix develop .#dev-env
-augury-node-tui
+# 3. Run from anywhere (uses config from setup)
+./augury-node-tui
+
+# Or override with flag
+./augury-node-tui --root /path/to/augury-node
 ```
 
 The setup wizard guides you through configuring the augury-node root, Nix, permissions, and binary installation. See [docs/setup-wizard.md](docs/setup-wizard.md) for details. The home screen shows Nix readiness status. Press `r` to refresh after enabling features.
