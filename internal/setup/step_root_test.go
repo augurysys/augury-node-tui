@@ -356,3 +356,41 @@ func TestTabComplete_BackspaceExitsMenu(t *testing.T) {
 		t.Error("Matches should be cleared after backspace")
 	}
 }
+
+func TestStepRoot_TildeExpansion(t *testing.T) {
+	step := NewRootStep("")
+
+	for _, r := range "~/Repos/augury-node" {
+		step, _ = step.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+	}
+
+	step, cmd := step.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	if !step.Confirmed() {
+		t.Error("Step should be confirmed")
+	}
+
+	if cmd == nil {
+		t.Fatal("Should return confirmation command")
+	}
+
+	msg := cmd()
+	confirmMsg, ok := msg.(RootConfirmedMsg)
+	if !ok {
+		t.Fatalf("Expected RootConfirmedMsg, got %T", msg)
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip("Cannot get home directory")
+	}
+
+	expected := filepath.Join(home, "Repos/augury-node")
+	if confirmMsg.Path != expected {
+		t.Errorf("Tilde should be expanded. Got %q, want %q", confirmMsg.Path, expected)
+	}
+
+	if strings.Contains(confirmMsg.Path, "~") {
+		t.Error("Confirmed path should not contain tilde")
+	}
+}

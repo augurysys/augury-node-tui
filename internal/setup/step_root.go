@@ -40,8 +40,9 @@ func (s *RootStep) Update(msg tea.Msg) (*RootStep, tea.Cmd) {
 			if path == "" {
 				return s, nil
 			}
+			expandedPath := expandHome(path)
 			s.confirmed = true
-			return s, func() tea.Msg { return RootConfirmedMsg{Path: path} }
+			return s, func() tea.Msg { return RootConfirmedMsg{Path: expandedPath} }
 		case tea.KeyEsc:
 			if s.menuActive {
 				s.exitMenu(false)
