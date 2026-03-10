@@ -75,6 +75,31 @@ var (
 		MarginBottom(1)
 )
 
+// Checkbox styles
+var (
+	CheckboxUnselected = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	CheckboxSelected   = lipgloss.NewStyle().Foreground(lipgloss.Color("42")).Bold(true)
+)
+
+// Row highlight style
+var RowHighlight = lipgloss.NewStyle().
+	Background(lipgloss.Color("236")).
+	Foreground(lipgloss.Color("255"))
+
+// Separator style
+var Separator = lipgloss.NewStyle().
+	Foreground(lipgloss.Color("240"))
+
+// Top bar styles
+var (
+	TopBar = lipgloss.NewStyle().
+		Foreground(lipgloss.Color("39")).
+		Bold(true)
+
+	TopBarContext = lipgloss.NewStyle().
+		Foreground(lipgloss.Color("246"))
+)
+
 // Helper functions
 func StatusStyle(status string) lipgloss.Style {
 	switch status {
