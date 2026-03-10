@@ -90,11 +90,18 @@ func (m *InstallStepModel) Update(msg tea.Msg) (*InstallStepModel, tea.Cmd) {
 		return m, nil
 
 	case InstallCompleteMsg:
+		m.state = "ready"
 		if msg.Err != "" {
 			m.installErr = msg.Err
 		} else {
-			m.confirmed = true
-			return m, func() tea.Msg { return NextStepMsg{} }
+			targetPath := "/usr/local/bin/augury-node-tui"
+			if target, err := os.Readlink(targetPath); err == nil && target == m.builtBinary {
+				m.alreadyInstalled = true
+				m.confirmed = true
+				return m, func() tea.Msg { return NextStepMsg{} }
+			} else {
+				m.installErr = "Symlink verification failed after install"
+			}
 		}
 		return m, nil
 
@@ -110,7 +117,17 @@ func (m *InstallStepModel) Update(msg tea.Msg) (*InstallStepModel, tea.Cmd) {
 			return m, copyToClipboard(cmd)
 		case "i":
 			m.installErr = ""
-			return m, m.autoInstall()
+			m.state = "installing"
+			targetPath := "/usr/local/bin/augury-node-tui"
+			return m, tea.ExecProcess(
+				exec.Command("sudo", "ln", "-sf", m.builtBinary, targetPath),
+				func(err error) tea.Msg {
+					if err != nil {
+						return InstallCompleteMsg{Err: fmt.Sprintf("installation failed: %v", err)}
+					}
+					return InstallCompleteMsg{}
+				},
+			)
 		case "r":
 			m.clipboardStatus = ""
 			m.installErr = ""
@@ -126,16 +143,6 @@ func (m *InstallStepModel) Update(msg tea.Msg) (*InstallStepModel, tea.Cmd) {
 	return m, nil
 }
 
-func (m *InstallStepModel) autoInstall() tea.Cmd {
-	return func() tea.Msg {
-		targetPath := "/usr/local/bin/augury-node-tui"
-		cmd := exec.Command("sudo", "ln", "-sf", m.builtBinary, targetPath)
-		if output, err := cmd.CombinedOutput(); err != nil {
-			return InstallCompleteMsg{Err: fmt.Sprintf("install failed: %v\n%s", err, output)}
-		}
-		return InstallCompleteMsg{}
-	}
-}
 
 func (m *InstallStepModel) View() string {
 	var lines []string
@@ -151,6 +158,14 @@ func (m *InstallStepModel) View() string {
 
 	if m.state == "building" {
 		lines = append(lines, "  "+styles.Dim.Render("Building binary..."))
+		return styles.Border.Render(strings.Join(lines, "\n"))
+	}
+
+	if m.state == "installing" {
+		lines = append(lines, "  "+styles.Info.Render("Installing to /usr/local/bin..."))
+		lines = append(lines, "")
+		lines = append(lines, "  "+styles.Dim.Render("TUI suspended for sudo prompt"))
+		lines = append(lines, "  "+styles.Dim.Render("Enter your password in the terminal"))
 		return styles.Border.Render(strings.Join(lines, "\n"))
 	}
 
