@@ -10,7 +10,8 @@ import (
 func TestStepBuild_DisplaysProgress(t *testing.T) {
 	step := NewBuildStep("/augury-node")
 	step.state = "building"
-	step.buildOutput = "Building package..."
+	step.buildOutput = []string{"Building package..."}
+	step.lastLine = "Building package..."
 
 	view := step.View()
 	if !strings.Contains(view, "Building") {

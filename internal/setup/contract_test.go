@@ -91,4 +91,5 @@ func TestContract_MessageTypes(t *testing.T) {
 	var _ tea.Msg = InstallCompleteMsg{}
 	var _ tea.Msg = BuildOutputMsg{}
 	var _ tea.Msg = BuildCompleteMsg{}
+	var _ tea.Msg = SpinnerTickMsg{}
 }

@@ -1,7 +1,12 @@
 package setup
 
 import (
+	"bufio"
+	"fmt"
+	"io"
+	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/augurysys/augury-node-tui/internal/styles"
 	tea "github.com/charmbracelet/bubbletea"
@@ -10,31 +15,110 @@ import (
 type BuildStepModel struct {
 	repoPath    string
 	state       string
-	buildOutput string
+	buildOutput []string
 	buildError  string
 	confirmed   bool
+	width       int
+	lastLine    string
+	spinner     int
+	outputChan  chan string
 }
 
 func NewBuildStep(repoPath string) *BuildStepModel {
 	return &BuildStepModel{
-		repoPath: repoPath,
-		state:   "idle",
+		repoPath:    repoPath,
+		state:       "idle",
+		buildOutput: []string{},
+		width:       80,
 	}
 }
 
 func (m *BuildStepModel) Init() tea.Cmd {
+	m.outputChan = make(chan string, 100)
+	return tea.Batch(
+		m.runBuild(m.outputChan),
+		m.listenForOutput(m.outputChan),
+		m.tickSpinner(),
+	)
+}
+
+func (m *BuildStepModel) runBuild(outputChan chan<- string) tea.Cmd {
 	return func() tea.Msg {
-		// Stub: just set state to building for now
-		return BuildOutputMsg{Output: ""}
+		defer close(outputChan)
+
+		cmd := exec.Command("nix", "build", "--print-build-logs")
+		cmd.Dir = m.repoPath
+
+		stdout, err := cmd.StdoutPipe()
+		if err != nil {
+			return BuildCompleteMsg{Success: false, Error: fmt.Sprintf("failed to create stdout pipe: %v", err)}
+		}
+		stderr, err := cmd.StderrPipe()
+		if err != nil {
+			return BuildCompleteMsg{Success: false, Error: fmt.Sprintf("failed to create stderr pipe: %v", err)}
+		}
+
+		if err := cmd.Start(); err != nil {
+			return BuildCompleteMsg{Success: false, Error: fmt.Sprintf("failed to start nix build: %v", err)}
+		}
+
+		go streamOutput(stdout, outputChan)
+		go streamOutput(stderr, outputChan)
+
+		err = cmd.Wait()
+
+		if err != nil {
+			return BuildCompleteMsg{Success: false, Error: fmt.Sprintf("nix build failed: %v", err)}
+		}
+		return BuildCompleteMsg{Success: true}
 	}
+}
+
+func (m *BuildStepModel) listenForOutput(outputChan <-chan string) tea.Cmd {
+	return func() tea.Msg {
+		line, ok := <-outputChan
+		if !ok {
+			return nil
+		}
+		return BuildOutputMsg{Output: line}
+	}
+}
+
+func streamOutput(r io.Reader, ch chan<- string) {
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
+		ch <- scanner.Text()
+	}
+}
+
+func (m *BuildStepModel) tickSpinner() tea.Cmd {
+	return tea.Tick(100*time.Millisecond, func(t time.Time) tea.Msg {
+		return SpinnerTickMsg{}
+	})
 }
 
 func (m *BuildStepModel) Update(msg tea.Msg) (*BuildStepModel, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+
+	case SpinnerTickMsg:
+		if m.state == "building" {
+			m.spinner = (m.spinner + 1) % 4
+			return m, m.tickSpinner()
+		}
+
 	case BuildOutputMsg:
 		m.state = "building"
-		m.buildOutput += msg.Output
-		return m, nil
+		line := strings.TrimSpace(msg.Output)
+		if line != "" {
+			m.lastLine = line
+			if len(m.buildOutput) > 100 {
+				m.buildOutput = m.buildOutput[1:]
+			}
+			m.buildOutput = append(m.buildOutput, line)
+		}
+		return m, m.listenForOutput(m.outputChan)
 
 	case BuildCompleteMsg:
 		if msg.Success {
@@ -52,13 +136,21 @@ func (m *BuildStepModel) Update(msg tea.Msg) (*BuildStepModel, tea.Cmd) {
 			return m, tea.Quit
 		case "r":
 			if m.state == "failed" {
-				m.state = "building"
+				m.state = "idle"
 				m.buildError = ""
-				m.buildOutput = ""
-				return m, func() tea.Msg {
-					// Stub: will implement actual build in orchestration
-					return BuildCompleteMsg{Success: true}
-				}
+				m.buildOutput = []string{}
+				m.lastLine = ""
+				m.outputChan = make(chan string, 100)
+				return m, tea.Batch(
+					m.runBuild(m.outputChan),
+					m.listenForOutput(m.outputChan),
+					m.tickSpinner(),
+				)
+			}
+		case "s":
+			if m.state == "failed" {
+				m.confirmed = true
+				return m, func() tea.Msg { return NextStepMsg{} }
 			}
 		}
 	}
@@ -66,35 +158,94 @@ func (m *BuildStepModel) Update(msg tea.Msg) (*BuildStepModel, tea.Cmd) {
 }
 
 func (m *BuildStepModel) View() string {
-	var lines []string
+	var b strings.Builder
 
-	header := styles.Header.Render("🔨 Nix Build")
-	lines = append(lines, header)
-	lines = append(lines, "")
+	spinnerFrames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+	spinner := spinnerFrames[m.spinner%len(spinnerFrames)]
 
-	if m.state == "building" || m.state == "complete" {
-		lines = append(lines, "  "+styles.Dim.Render("Building")+"...")
-		if m.buildOutput != "" {
-			lines = append(lines, "")
-			lines = append(lines, "  "+styles.Dim.Render(m.buildOutput))
-		}
-		if m.state == "building" {
-			lines = append(lines, "")
-			lines = append(lines, "  "+styles.KeyBinding("q", "Cancel"))
-		}
+	header := styles.Header.Render("Nix Build")
+	b.WriteString(header)
+	b.WriteString("\n\n")
+
+	maxWidth := m.width - 8
+	if maxWidth < 40 {
+		maxWidth = 40
 	}
 
-	if m.state == "failed" {
-		lines = append(lines, "  "+styles.Error.Render("Build failed"))
+	switch m.state {
+	case "idle":
+		b.WriteString("  " + styles.Dim.Render("Preparing build...") + "\n")
+
+	case "building":
+		b.WriteString("  " + styles.Info.Render(spinner) + " " + styles.Bold.Render("Building augury-node with Nix...") + "\n")
+		b.WriteString("  " + styles.Dim.Render("This may take several minutes on first run") + "\n\n")
+
+		if m.lastLine != "" {
+			displayLine := m.lastLine
+			if len(displayLine) > maxWidth {
+				displayLine = displayLine[:maxWidth-3] + "..."
+			}
+			b.WriteString("  " + styles.Dim.Render(displayLine) + "\n")
+		}
+
+		tailLines := 8
+		startIdx := len(m.buildOutput) - tailLines
+		if startIdx < 0 {
+			startIdx = 0
+		}
+		if len(m.buildOutput) > 0 {
+			b.WriteString("\n")
+			for i := startIdx; i < len(m.buildOutput); i++ {
+				line := m.buildOutput[i]
+				if len(line) > maxWidth {
+					line = line[:maxWidth-3] + "..."
+				}
+				b.WriteString("  " + styles.Dim.Render(line) + "\n")
+			}
+		}
+
+		b.WriteString("\n  " + styles.KeyBinding("q", "Cancel") + "\n")
+
+	case "complete":
+		b.WriteString("  " + styles.Success.Render("✓ Build complete") + "\n")
+
+	case "failed":
+		b.WriteString("  " + styles.Error.Render("✗ Build failed") + "\n\n")
 		if m.buildError != "" {
-			lines = append(lines, "")
-			lines = append(lines, "  "+styles.Error.Render(m.buildError))
+			errorLines := strings.Split(m.buildError, "\n")
+			for _, line := range errorLines {
+				if len(line) > maxWidth {
+					line = line[:maxWidth-3] + "..."
+				}
+				b.WriteString("  " + styles.Error.Render(line) + "\n")
+			}
 		}
-		lines = append(lines, "")
-		lines = append(lines, "  "+styles.KeyBinding("r", "Retry")+" • "+styles.KeyBinding("q", "Quit"))
+
+		tailLines := 10
+		startIdx := len(m.buildOutput) - tailLines
+		if startIdx < 0 {
+			startIdx = 0
+		}
+		if len(m.buildOutput) > 0 {
+			b.WriteString("\n  " + styles.Dim.Render("Last output lines:") + "\n")
+			for i := startIdx; i < len(m.buildOutput); i++ {
+				line := m.buildOutput[i]
+				if len(line) > maxWidth {
+					line = line[:maxWidth-3] + "..."
+				}
+				b.WriteString("  " + styles.Dim.Render(line) + "\n")
+			}
+		}
+
+		b.WriteString("\n  " + styles.KeyBinding("r", "Retry") + "  " + styles.KeyBinding("s", "Skip") + "  " + styles.KeyBinding("q", "Quit") + "\n")
 	}
 
-	return styles.Border.Render(strings.Join(lines, "\n"))
+	borderStyle := styles.Border
+	if m.width > 0 {
+		borderStyle = borderStyle.Width(maxWidth)
+	}
+
+	return borderStyle.Render(b.String())
 }
 
 func (m *BuildStepModel) Confirmed() bool {
@@ -109,3 +260,5 @@ type BuildCompleteMsg struct {
 	Success bool
 	Error   string
 }
+
+type SpinnerTickMsg struct{}
