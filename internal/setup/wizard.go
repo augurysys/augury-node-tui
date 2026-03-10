@@ -33,15 +33,18 @@ func NewWizard(reconfigure bool) *WizardModel {
 	binaryPath, _ := os.Executable()
 
 	reconfiguring := reconfigure
-	if !reconfiguring {
-		if path, err := config.DefaultPath(); err == nil {
-			if cfg, err := config.Read(path); err == nil && cfg.AuguryNodeRoot != "" {
+	var existingCfg config.Config
+	if path, err := config.DefaultPath(); err == nil {
+		if cfg, err := config.Read(path); err == nil {
+			existingCfg = cfg
+			if !reconfiguring && cfg.AuguryNodeRoot != "" {
 				reconfiguring = true
 			}
 		}
 	}
 
 	return &WizardModel{
+		config:       existingCfg,
 		currentStep:  0,
 		stepRoot:     NewRootStep(detected),
 		stepNix:      NewNixStep(),

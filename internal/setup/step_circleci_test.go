@@ -1,6 +1,7 @@
 package setup
 
 import (
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -53,23 +54,10 @@ func TestCircleCIStep_ViewMasksInput(t *testing.T) {
 	}
 
 	view := s.View()
-	if !contains(view, "******") {
+	if !strings.Contains(view, "******") {
 		t.Error("view should mask input with asterisks")
 	}
-	if contains(view, "secret") {
+	if strings.Contains(view, "secret") {
 		t.Error("view should not show raw token")
 	}
-}
-
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && stringContains(s, substr)
-}
-
-func stringContains(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }

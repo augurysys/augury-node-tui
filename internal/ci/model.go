@@ -51,6 +51,11 @@ func NewModel(token, slug, branch, repoRoot string) *Model {
 		m.state = stateNoToken
 		return m
 	}
+	if slug == "" {
+		m.state = stateError
+		m.errMsg = "Cannot determine CircleCI project slug from git remote URL"
+		return m
+	}
 	m.client = NewClient(token)
 	m.state = stateLoading
 	return m
@@ -118,7 +123,7 @@ func (m *Model) downloadLog(job Job) tea.Cmd {
 		if err := os.MkdirAll(logDir, 0755); err != nil {
 			return CIErrorMsg{Err: fmt.Errorf("create log dir: %w", err)}
 		}
-		logPath := filepath.Join(logDir, job.Name+".log")
+		logPath := filepath.Join(logDir, filepath.Base(job.Name)+".log")
 		if err := os.WriteFile(logPath, data, 0644); err != nil {
 			return CIErrorMsg{Err: fmt.Errorf("write log: %w", err)}
 		}
