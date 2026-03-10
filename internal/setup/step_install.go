@@ -20,12 +20,14 @@ type InstallStepModel struct {
 	buildErr         string
 	clipboardStatus  string
 	installErr       string
+	width            int
 }
 
 func NewInstallStep(repoRoot string) *InstallStepModel {
 	return &InstallStepModel{
 		repoRoot: repoRoot,
 		state:    "building",
+		width:    80,
 	}
 }
 
@@ -57,6 +59,9 @@ func (m *InstallStepModel) Init() tea.Cmd {
 
 func (m *InstallStepModel) Update(msg tea.Msg) (*InstallStepModel, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+
 	case BinaryBuiltMsg:
 		if msg.Err != "" {
 			m.state = "error"
@@ -136,6 +141,11 @@ func (m *InstallStepModel) View() string {
 	lines = append(lines, header)
 	lines = append(lines, "")
 
+	maxWidth := m.width - 8
+	if maxWidth < 40 {
+		maxWidth = 40
+	}
+
 	if m.state == "building" {
 		lines = append(lines, "  "+styles.Dim.Render("Building binary..."))
 		return styles.Border.Render(strings.Join(lines, "\n"))
@@ -143,13 +153,30 @@ func (m *InstallStepModel) View() string {
 
 	if m.state == "error" {
 		lines = append(lines, "  "+styles.Error.Render("Build failed:"))
-		lines = append(lines, "  "+m.buildErr)
+		lines = append(lines, "")
+		
+		errorLines := strings.Split(m.buildErr, "\n")
+		for _, errLine := range errorLines {
+			for len(errLine) > 0 {
+				if len(errLine) <= maxWidth {
+					lines = append(lines, "  "+styles.Dim.Render(errLine))
+					break
+				}
+				lines = append(lines, "  "+styles.Dim.Render(errLine[:maxWidth]))
+				errLine = errLine[maxWidth:]
+			}
+		}
+		
 		lines = append(lines, "")
 		lines = append(lines, "  "+styles.KeyBinding("r", "Retry")+"  "+styles.KeyBinding("s", "Skip")+"  "+styles.KeyBinding("q", "Quit"))
 		return styles.Border.Render(strings.Join(lines, "\n"))
 	}
 
-	lines = append(lines, "  Built: "+styles.Success.Render(m.builtBinary))
+	binaryPath := m.builtBinary
+	if len(binaryPath) > maxWidth-10 {
+		binaryPath = "..." + binaryPath[len(binaryPath)-(maxWidth-13):]
+	}
+	lines = append(lines, "  Built: "+styles.Success.Render(binaryPath))
 	lines = append(lines, "")
 
 	if m.alreadyInstalled {
@@ -161,20 +188,47 @@ func (m *InstallStepModel) View() string {
 		lines = append(lines, "  Installation options:")
 		lines = append(lines, "")
 		lines = append(lines, "  1. System-wide (requires sudo):")
+		
 		cmd := "sudo ln -sf " + m.builtBinary + " " + targetPath
-		lines = append(lines, "     "+styles.Dim.Render(cmd))
+		if len(cmd) > maxWidth-5 {
+			lines = append(lines, "     "+styles.Dim.Render("sudo ln -sf \\"))
+			lines = append(lines, "       "+styles.Dim.Render(m.builtBinary+" \\"))
+			lines = append(lines, "       "+styles.Dim.Render(targetPath))
+		} else {
+			lines = append(lines, "     "+styles.Dim.Render(cmd))
+		}
+		
 		lines = append(lines, "")
 		lines = append(lines, "  2. User PATH: Add this to your shell config:")
-		lines = append(lines, "     "+styles.Dim.Render("export PATH=\""+filepath.Dir(m.builtBinary)+":$PATH\""))
+		pathCmd := "export PATH=\"" + filepath.Dir(m.builtBinary) + ":$PATH\""
+		if len(pathCmd) > maxWidth-5 {
+			lines = append(lines, "     "+styles.Dim.Render("export PATH=\""+filepath.Dir(m.builtBinary)+":$PATH\""))
+		} else {
+			lines = append(lines, "     "+styles.Dim.Render(pathCmd))
+		}
 		lines = append(lines, "")
 
 		if m.clipboardStatus != "" {
-			lines = append(lines, "  "+styles.Info.Render(m.clipboardStatus))
+			status := m.clipboardStatus
+			if len(status) > maxWidth {
+				status = status[:maxWidth-3] + "..."
+			}
+			lines = append(lines, "  "+styles.Info.Render(status))
 			lines = append(lines, "")
 		}
 
 		if m.installErr != "" {
-			lines = append(lines, "  "+styles.Error.Render(m.installErr))
+			errLines := strings.Split(m.installErr, "\n")
+			for _, errLine := range errLines {
+				for len(errLine) > 0 {
+					if len(errLine) <= maxWidth {
+						lines = append(lines, "  "+styles.Error.Render(errLine))
+						break
+					}
+					lines = append(lines, "  "+styles.Error.Render(errLine[:maxWidth]))
+					errLine = errLine[maxWidth:]
+				}
+			}
 			lines = append(lines, "")
 		}
 
