@@ -25,6 +25,8 @@ type WizardModel struct {
 	config        config.Config
 	launchMain    bool
 	reconfiguring bool
+	width         int
+	height        int
 }
 
 func NewWizard(reconfigure bool) *WizardModel {
@@ -43,16 +45,18 @@ func NewWizard(reconfigure bool) *WizardModel {
 	}
 
 	return &WizardModel{
-		config:       existingCfg,
-		currentStep:  0,
-		stepRoot:     NewRootStep(detected),
-		stepNix:      NewNixStep(),
-		stepGroups:   NewGroupsStep(),
-		stepInstall:  nil,
-		stepNixBuild: nil,
-		stepCircleCI: NewCircleCIStep(),
-		stepSuccess:  nil,
+		config:        existingCfg,
+		currentStep:   0,
+		stepRoot:      NewRootStep(detected),
+		stepNix:       NewNixStep(),
+		stepGroups:    NewGroupsStep(),
+		stepInstall:   nil,
+		stepNixBuild:  nil,
+		stepCircleCI:  NewCircleCIStep(),
+		stepSuccess:   nil,
 		reconfiguring: reconfiguring,
+		width:         80,
+		height:        24,
 	}
 }
 
@@ -62,6 +66,10 @@ func (m *WizardModel) Init() tea.Cmd {
 
 func (m *WizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+
 	case NextStepMsg:
 		return m.advanceStep()
 	case LaunchMainTUIMsg:
@@ -241,7 +249,105 @@ func (m *WizardModel) View() string {
 	default:
 		stepView = ""
 	}
-	return strings.Join([]string{title, stepView}, "\n")
+	
+	helpPanel := m.renderHelpPanel()
+	
+	return strings.Join([]string{title, stepView, helpPanel}, "\n")
+}
+
+func (m *WizardModel) renderHelpPanel() string {
+	var keys []string
+	
+	switch m.currentStep {
+	case 0:
+		keys = []string{
+			styles.KeyBinding("tab", "complete"),
+			styles.KeyBinding("enter", "confirm"),
+			styles.KeyBinding("q", "quit"),
+		}
+	case 1:
+		if m.stepNix != nil && m.stepNix.state == "unhealthy" {
+			keys = []string{
+				styles.KeyBinding("f", "fix"),
+				styles.KeyBinding("s", "skip"),
+				styles.KeyBinding("q", "quit"),
+			}
+		} else {
+			keys = []string{
+				styles.KeyBinding("enter", "continue"),
+				styles.KeyBinding("q", "quit"),
+			}
+		}
+	case 2:
+		if m.stepGroups != nil && !m.stepGroups.inNixUsers {
+			keys = []string{
+				styles.KeyBinding("c", "copy cmd"),
+				styles.KeyBinding("r", "recheck"),
+				styles.KeyBinding("s", "skip"),
+				styles.KeyBinding("q", "quit"),
+			}
+		} else {
+			keys = []string{
+				styles.KeyBinding("enter", "continue"),
+				styles.KeyBinding("q", "quit"),
+			}
+		}
+	case 3:
+		if m.stepInstall != nil && m.stepInstall.state == "ready" && !m.stepInstall.alreadyInstalled {
+			keys = []string{
+				styles.KeyBinding("i", "auto-install"),
+				styles.KeyBinding("c", "copy cmd"),
+				styles.KeyBinding("s", "skip"),
+				styles.KeyBinding("q", "quit"),
+			}
+		} else {
+			keys = []string{
+				styles.KeyBinding("enter", "continue"),
+				styles.KeyBinding("q", "quit"),
+			}
+		}
+	case 4:
+		if m.stepNixBuild != nil && m.stepNixBuild.state == "building" {
+			keys = []string{
+				styles.KeyBinding("q", "cancel"),
+			}
+		} else if m.stepNixBuild != nil && m.stepNixBuild.state == "failed" {
+			keys = []string{
+				styles.KeyBinding("r", "retry"),
+				styles.KeyBinding("s", "skip"),
+				styles.KeyBinding("q", "quit"),
+			}
+		} else {
+			keys = []string{
+				styles.KeyBinding("enter", "continue"),
+				styles.KeyBinding("q", "quit"),
+			}
+		}
+	case 5:
+		keys = []string{
+			styles.KeyBinding("enter", "confirm"),
+			styles.KeyBinding("s", "skip"),
+			styles.KeyBinding("q", "quit"),
+		}
+	case 6:
+		keys = []string{
+			styles.KeyBinding("enter", "launch"),
+			styles.KeyBinding("q", "quit"),
+		}
+	default:
+		keys = []string{
+			styles.KeyBinding("q", "quit"),
+		}
+	}
+	
+	helpText := strings.Join(keys, "  ")
+	
+	separator := strings.Repeat("─", m.width)
+	if m.width == 0 {
+		separator = strings.Repeat("─", 80)
+	}
+	
+	return "\n" + styles.Dim.Render(separator) + "\n" + styles.KeyHelp.Render(helpText)
 }
 
 func (m *WizardModel) LaunchMainRequested() bool {
