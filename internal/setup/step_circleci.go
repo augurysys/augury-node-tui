@@ -8,13 +8,20 @@ import (
 )
 
 type CircleCIStepModel struct {
-	userInput string
-	confirmed bool
-	skipped   bool
+	currentToken string
+	userInput    string
+	confirmed    bool
+	skipped      bool
 }
 
 func NewCircleCIStep() *CircleCIStepModel {
 	return &CircleCIStepModel{}
+}
+
+func NewCircleCIStepWithCurrent(currentToken string) *CircleCIStepModel {
+	return &CircleCIStepModel{
+		currentToken: currentToken,
+	}
 }
 
 func (s *CircleCIStepModel) Init() tea.Cmd {
@@ -29,11 +36,17 @@ func (s *CircleCIStepModel) Update(msg tea.Msg) (*CircleCIStepModel, tea.Cmd) {
 			token := strings.TrimSpace(s.userInput)
 			s.confirmed = true
 			if token == "" {
-				s.skipped = true
+				if s.currentToken != "" {
+					s.userInput = s.currentToken
+				} else {
+					s.skipped = true
+				}
 			}
 			return s, func() tea.Msg { return NextStepMsg{} }
+		case tea.KeyCtrlQ:
+			return s, tea.Quit
 		case tea.KeyRunes:
-			if len(msg.Runes) == 1 && msg.Runes[0] == 'q' && s.userInput == "" {
+			if len(msg.Runes) == 1 && msg.Runes[0] == 'q' && s.userInput == "" && s.currentToken == "" {
 				return s, tea.Quit
 			}
 			s.userInput += string(msg.Runes)
@@ -52,14 +65,23 @@ func (s *CircleCIStepModel) View() string {
 
 	b.WriteString(styles.Title.Render("Step 6: CircleCI Token (Optional)"))
 	b.WriteString("\n\n")
+
+	if s.currentToken != "" {
+		b.WriteString(styles.Info.Render("Current: "))
+		b.WriteString(strings.Repeat("*", len(s.currentToken)))
+		b.WriteString("\n")
+		b.WriteString(styles.Dim.Render("Press Enter on empty field to keep current value"))
+		b.WriteString("\n\n")
+	}
+
 	b.WriteString("Enter your CircleCI personal API token for CI dashboard access.\n")
-	b.WriteString(styles.Dim.Render("Leave blank and press Enter to skip."))
+	if s.currentToken == "" {
+		b.WriteString(styles.Dim.Render("Leave blank and press Enter to skip."))
+	}
 	b.WriteString("\n\n")
 
 	masked := strings.Repeat("*", len(s.userInput))
 	b.WriteString(styles.Border.Render(masked))
-	b.WriteString("\n\n")
-	b.WriteString(styles.Dim.Render("Press Enter to continue"))
 
 	return b.String()
 }

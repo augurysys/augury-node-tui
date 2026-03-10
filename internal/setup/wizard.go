@@ -44,15 +44,20 @@ func NewWizard(reconfigure bool) *WizardModel {
 		}
 	}
 
+	rootPath := detected
+	if existingCfg.AuguryNodeRoot != "" {
+		rootPath = existingCfg.AuguryNodeRoot
+	}
+
 	return &WizardModel{
 		config:        existingCfg,
 		currentStep:   0,
-		stepRoot:      NewRootStep(detected),
+		stepRoot:      NewRootStep(rootPath),
 		stepNix:       NewNixStep(),
 		stepGroups:    NewGroupsStep(),
 		stepInstall:   nil,
 		stepNixBuild:  nil,
-		stepCircleCI:  NewCircleCIStep(),
+		stepCircleCI:  NewCircleCIStepWithCurrent(existingCfg.CircleToken),
 		stepSuccess:   nil,
 		reconfiguring: reconfiguring,
 		width:         80,
@@ -262,8 +267,8 @@ func (m *WizardModel) renderHelpPanel() string {
 	case 0:
 		keys = []string{
 			styles.KeyBinding("tab", "complete"),
-			styles.KeyBinding("enter", "confirm"),
-			styles.KeyBinding("q", "quit"),
+			styles.KeyBinding("enter", "confirm or keep"),
+			styles.KeyBinding("ctrl+q", "quit"),
 		}
 	case 1:
 		if m.stepNix != nil && m.stepNix.state == "unhealthy" {
@@ -344,8 +349,8 @@ func (m *WizardModel) renderHelpPanel() string {
 		}
 	case 5:
 		keys = []string{
-			styles.KeyBinding("enter", "confirm or skip"),
-			styles.KeyBinding("q", "quit"),
+			styles.KeyBinding("enter", "confirm or keep"),
+			styles.KeyBinding("ctrl+q", "quit"),
 		}
 	case 6:
 		keys = []string{

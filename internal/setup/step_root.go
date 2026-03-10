@@ -38,11 +38,18 @@ func (s *RootStep) Update(msg tea.Msg) (*RootStep, tea.Cmd) {
 			}
 			path := strings.TrimSpace(s.userInput)
 			if path == "" {
+				if s.detectedPath != "" {
+					expandedPath := expandHome(s.detectedPath)
+					s.confirmed = true
+					return s, func() tea.Msg { return RootConfirmedMsg{Path: expandedPath} }
+				}
 				return s, nil
 			}
 			expandedPath := expandHome(path)
 			s.confirmed = true
 			return s, func() tea.Msg { return RootConfirmedMsg{Path: expandedPath} }
+		case tea.KeyCtrlQ:
+			return s, tea.Quit
 		case tea.KeyEsc:
 			if s.menuActive {
 				s.exitMenu(false)
@@ -248,8 +255,10 @@ func (s *RootStep) View() string {
 	b.WriteString("\n\n")
 
 	if s.detectedPath != "" {
-		b.WriteString(styles.Success.Render("Auto-detected: "))
+		b.WriteString(styles.Info.Render("Current: "))
 		b.WriteString(s.detectedPath)
+		b.WriteString("\n")
+		b.WriteString(styles.Dim.Render("Press Enter on empty field to keep current value"))
 		b.WriteString("\n\n")
 	}
 
