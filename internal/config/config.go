@@ -14,6 +14,7 @@ type Config struct {
 	SetupCompletedAt string   `toml:"setup_completed_at"`
 	CompletedSteps   []string `toml:"completed_steps"`
 	SkippedSteps     []string `toml:"skipped_steps"`
+	CircleToken      string   `toml:"circle_token,omitempty"`
 }
 
 func DefaultPath() (string, error) {
