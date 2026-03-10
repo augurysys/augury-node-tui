@@ -59,7 +59,7 @@ func NewModel(st status.RepoStatus, platforms []platform.Platform) *Model {
 
 func (m *Model) initPlatformTable() {
 	columns := []components.Column{
-		{Header: "☐", Width: 3, Sortable: false, Renderer: m.renderCheckbox},
+		{Header: "☐", Width: 5, Sortable: false, Renderer: m.renderCheckbox},
 		{Header: "Platform", Width: 20, Sortable: true, Renderer: m.renderPlatformID},
 		{Header: "State", Width: 12, Sortable: true, Renderer: m.renderState},
 		{Header: "Path", Width: -1, Sortable: true, Renderer: m.renderOutputPath},
@@ -71,9 +71,9 @@ func (m *Model) initPlatformTable() {
 func (m *Model) renderCheckbox(row interface{}) string {
 	e := row.(PlatformEntry)
 	if e.Selected {
-		return "☑"
+		return styles.CheckboxSelected.Render("[●]")
 	}
-	return "☐"
+	return styles.CheckboxUnselected.Render("[ · ]")
 }
 
 func (m *Model) renderPlatformID(row interface{}) string {
