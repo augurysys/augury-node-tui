@@ -30,7 +30,6 @@ type WizardModel struct {
 func NewWizard(reconfigure bool) *WizardModel {
 	cwd, _ := os.Getwd()
 	detected, _ := FindAuguryNodeRoot(cwd)
-	binaryPath, _ := os.Executable()
 
 	reconfiguring := reconfigure
 	var existingCfg config.Config
@@ -49,10 +48,10 @@ func NewWizard(reconfigure bool) *WizardModel {
 		stepRoot:     NewRootStep(detected),
 		stepNix:      NewNixStep(),
 		stepGroups:   NewGroupsStep(),
-		stepInstall:  NewInstallStep(binaryPath),
+		stepInstall:  nil,
 		stepNixBuild: nil,
 		stepCircleCI: NewCircleCIStep(),
-		stepSuccess:  nil, // created when advancing to step 6 with skipped steps
+		stepSuccess:  nil,
 		reconfiguring: reconfiguring,
 	}
 }
@@ -90,7 +89,12 @@ func (m *WizardModel) advanceStep() (tea.Model, tea.Cmd) {
 	case 2:
 		cmd = m.stepGroups.Init()
 	case 3:
-		cmd = m.stepInstall.Init()
+		if m.stepInstall == nil && m.config.AuguryNodeRoot != "" {
+			m.stepInstall = NewInstallStep(m.config.AuguryNodeRoot)
+		}
+		if m.stepInstall != nil {
+			cmd = m.stepInstall.Init()
+		}
 	case 4:
 		if m.stepNixBuild == nil && m.config.AuguryNodeRoot != "" {
 			m.stepNixBuild = NewBuildStep(m.config.AuguryNodeRoot)
@@ -181,9 +185,11 @@ func (m *WizardModel) updateCurrentStep(msg tea.Msg) (tea.Model, tea.Cmd) {
 		s, cmd = m.stepGroups.Update(msg)
 		m.stepGroups = s
 	case 3:
-		var s *InstallStepModel
-		s, cmd = m.stepInstall.Update(msg)
-		m.stepInstall = s
+		if m.stepInstall != nil {
+			var s *InstallStepModel
+			s, cmd = m.stepInstall.Update(msg)
+			m.stepInstall = s
+		}
 	case 4:
 		if m.stepNixBuild != nil {
 			var s *BuildStepModel
@@ -217,7 +223,11 @@ func (m *WizardModel) View() string {
 	case 2:
 		stepView = m.stepGroups.View()
 	case 3:
-		stepView = m.stepInstall.View()
+		if m.stepInstall != nil {
+			stepView = m.stepInstall.View()
+		} else {
+			stepView = ""
+		}
 	case 4:
 		if m.stepNixBuild != nil {
 			stepView = m.stepNixBuild.View()

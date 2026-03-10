@@ -87,7 +87,8 @@ func TestContract_MessageTypes(t *testing.T) {
 	var _ tea.Msg = NixHealthCheckMsg{}
 	var _ tea.Msg = NixFixResultMsg{}
 	var _ tea.Msg = GroupCheckMsg{}
-	var _ tea.Msg = InstallCheckMsg{}
+	var _ tea.Msg = BinaryBuiltMsg{}
+	var _ tea.Msg = InstallCompleteMsg{}
 	var _ tea.Msg = BuildOutputMsg{}
 	var _ tea.Msg = BuildCompleteMsg{}
 }

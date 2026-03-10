@@ -6,7 +6,8 @@ import (
 )
 
 func TestStepInstall_DisplaysTargetPath(t *testing.T) {
-	step := NewInstallStep("/current/binary")
+	step := NewInstallStep(t.TempDir())
+	step.builtBinary = "/tmp/test/bin/augury-node-tui"
 	step.state = "ready"
 	view := step.View()
 
@@ -16,9 +17,9 @@ func TestStepInstall_DisplaysTargetPath(t *testing.T) {
 }
 
 func TestStepInstall_AlreadyInstalledAutoAdvances(t *testing.T) {
-	step := NewInstallStep("/current/binary")
-	checkMsg := InstallCheckMsg{AlreadyInstalled: true}
-	step, cmd := step.Update(checkMsg)
+	step := NewInstallStep(t.TempDir())
+	builtMsg := BinaryBuiltMsg{Binary: "/tmp/binary", AlreadyInstalled: true}
+	step, cmd := step.Update(builtMsg)
 
 	if !step.Confirmed() {
 		t.Error("Should auto-confirm if already installed")
@@ -33,7 +34,8 @@ func TestStepInstall_AlreadyInstalledAutoAdvances(t *testing.T) {
 }
 
 func TestStepInstall_ShowsSudoCommand(t *testing.T) {
-	step := NewInstallStep("/current/binary")
+	step := NewInstallStep(t.TempDir())
+	step.builtBinary = "/tmp/test/bin/augury-node-tui"
 	step.alreadyInstalled = false
 	step.state = "ready"
 
