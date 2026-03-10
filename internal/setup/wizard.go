@@ -20,6 +20,7 @@ type WizardModel struct {
 	stepGroups    *GroupsStepModel
 	stepInstall   *InstallStepModel
 	stepNixBuild  *BuildStepModel
+	stepCircleCI  *CircleCIStepModel
 	stepSuccess   *SuccessStepModel
 	config        config.Config
 	launchMain    bool
@@ -47,7 +48,8 @@ func NewWizard(reconfigure bool) *WizardModel {
 		stepGroups:   NewGroupsStep(),
 		stepInstall:  NewInstallStep(binaryPath),
 		stepNixBuild: nil,
-		stepSuccess:  nil, // created when advancing to step 5 with skipped steps
+		stepCircleCI: NewCircleCIStep(),
+		stepSuccess:  nil, // created when advancing to step 6 with skipped steps
 		reconfiguring: reconfiguring,
 	}
 }
@@ -94,6 +96,8 @@ func (m *WizardModel) advanceStep() (tea.Model, tea.Cmd) {
 			cmd = m.stepNixBuild.Init()
 		}
 	case 5:
+		cmd = m.stepCircleCI.Init()
+	case 6:
 		m.stepSuccess = NewSuccessStep(m.config.SkippedSteps)
 		cmd = m.stepSuccess.Init()
 	}
@@ -136,6 +140,15 @@ func (m *WizardModel) persistConfigAtStep() {
 	case 4:
 		if m.stepNixBuild != nil && m.stepNixBuild.Confirmed() {
 			m.config.CompletedSteps = append(m.config.CompletedSteps, "nixbuild")
+		}
+	case 5:
+		if m.stepCircleCI != nil && m.stepCircleCI.Confirmed() {
+			m.config.CompletedSteps = append(m.config.CompletedSteps, "circleci")
+			if m.stepCircleCI.Skipped() {
+				m.config.SkippedSteps = append(m.config.SkippedSteps, "circleci")
+			} else {
+				m.config.CircleToken = m.stepCircleCI.Token()
+			}
 			m.config.SetupCompletedAt = time.Now().Format(time.RFC3339)
 		}
 	}
@@ -183,7 +196,7 @@ func (m *WizardModel) updateCurrentStep(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *WizardModel) View() string {
-	titleStr := fmt.Sprintf("Step %d/6", m.currentStep+1)
+	titleStr := fmt.Sprintf("Step %d/7", m.currentStep+1)
 	if m.reconfiguring {
 		titleStr = "Reconfiguring... " + titleStr
 	}
@@ -205,6 +218,8 @@ func (m *WizardModel) View() string {
 			stepView = ""
 		}
 	case 5:
+		stepView = m.stepCircleCI.View()
+	case 6:
 		stepView = m.stepSuccess.View()
 	default:
 		stepView = ""

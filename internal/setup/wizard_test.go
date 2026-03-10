@@ -26,14 +26,14 @@ func TestWizard_ViewShowsProgressIndicator(t *testing.T) {
 	w := NewWizard(false)
 	w.currentStep = 2
 	view := w.View()
-	if !strings.Contains(view, "Step") || !strings.Contains(view, "/6") {
+	if !strings.Contains(view, "Step") || !strings.Contains(view, "/7") {
 		t.Error("View should show step progress indicator")
 	}
 }
 
 func TestWizard_LaunchMainTUIExits(t *testing.T) {
 	w := NewWizard(false)
-	w.currentStep = 5
+	w.currentStep = 6
 	model, cmd := w.Update(LaunchMainTUIMsg{})
 	w = model.(*WizardModel)
 	if w.launchMain != true {
