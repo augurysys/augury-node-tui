@@ -13,8 +13,8 @@ import (
 	"github.com/augurysys/augury-node-tui/internal/status"
 	"github.com/augurysys/augury-node-tui/internal/styles"
 	"github.com/augurysys/augury-node-tui/internal/visual/diagram"
-	"github.com/charmbracelet/lipgloss"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // PlatformEntry holds platform data for the DataTable
@@ -26,17 +26,17 @@ type PlatformEntry struct {
 }
 
 type Model struct {
-	Status                 status.RepoStatus
-	Platforms              []platform.Platform
-	Selected               map[string]bool
-	DeveloperDownloads     *developerdownloads.Index
-	DeveloperDownloadsErr  error
-	Width                  int
-	Height                 int
-	nixState               engine.NixState
-	platformTable          *components.DataTable
-	metricsBar             components.MetricsBar
-	showMetrics            bool
+	Status                status.RepoStatus
+	Platforms             []platform.Platform
+	Selected              map[string]bool
+	DeveloperDownloads    *developerdownloads.Index
+	DeveloperDownloadsErr error
+	Width                 int
+	Height                int
+	nixState              engine.NixState
+	platformTable         *components.DataTable
+	metricsBar            components.MetricsBar
+	showMetrics           bool
 }
 
 func NewModel(st status.RepoStatus, platforms []platform.Platform) *Model {
@@ -171,6 +171,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, func() tea.Msg { return nav.NavigateMsg{Route: "validations"} }
 		case "o":
 			return m, func() tea.Msg { return nav.NavigateMsg{Route: "hints"} }
+		case "p":
+			return m, func() tea.Msg { return nav.NavigateMsg{Route: "ci"} }
 		case "j", "down", "k", "up":
 			m.platformTable.Update(msg)
 			return m, nil
@@ -189,15 +191,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *Model) View() string {
 	var sections []string
-	blank := ""
 
-	// Title - large, bold, centered
+	// Title
 	title := styles.Title.Render("🚀 Augury Node Builder")
-	sections = append(sections, title, blank)
+	sections = append(sections, title)
 
 	// Diagram (if wide enough)
 	if m.Width >= diagram.MinDiagramWidth {
-		sections = append(sections, diagram.PlatformFlow(m.Platforms), blank)
+		sections = append(sections, diagram.PlatformFlow(m.Platforms))
 	}
 
 	// Repo status card
@@ -210,11 +211,11 @@ func (m *Model) View() string {
 	if width <= 0 {
 		width = 80
 	}
-	sections = append(sections, repoCard.Render(width), blank)
+	sections = append(sections, repoCard.Render(width))
 
 	// Metrics bar (if enabled)
 	if m.showMetrics {
-		sections = append(sections, m.metricsBar.Render(), blank)
+		sections = append(sections, m.metricsBar.Render())
 	}
 
 	// Platform table section
@@ -224,7 +225,7 @@ func (m *Model) View() string {
 		hint += "  " + styles.Warning.Render("⚠ developer-downloads unavailable")
 	}
 	platformSection := platformHeader + hint + "\n" + m.platformTable.View()
-	sections = append(sections, styles.Section.Render(platformSection), blank)
+	sections = append(sections, styles.Section.Render(platformSection))
 
 	// Key Bindings
 	keyHelp := m.renderKeyHelp()
@@ -289,6 +290,7 @@ func (m *Model) renderKeyHelp() string {
 		styles.KeyBinding("c", "caches"),
 		styles.KeyBinding("v", "validations"),
 		styles.KeyBinding("o", "hints"),
+		styles.KeyBinding("p", "pipeline"),
 		styles.KeyBinding("a", "replay"),
 		styles.KeyBinding("r", "refresh"),
 		styles.KeyBinding("q", "quit"),

@@ -75,3 +75,11 @@ func gitOutput(dir string, args ...string) (string, error) {
 	out, err := cmd.Output()
 	return string(out), err
 }
+
+func RemoteURL(root, remote string) string {
+	out, err := gitOutput(root, "remote", "get-url", remote)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(out)
+}
