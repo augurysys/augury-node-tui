@@ -188,6 +188,10 @@ func (m *WizardModel) updateCurrentStep(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.stepNixBuild = s
 		}
 	case 5:
+		var s *CircleCIStepModel
+		s, cmd = m.stepCircleCI.Update(msg)
+		m.stepCircleCI = s
+	case 6:
 		var s *SuccessStepModel
 		s, cmd = m.stepSuccess.Update(msg)
 		m.stepSuccess = s
