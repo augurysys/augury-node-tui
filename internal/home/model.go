@@ -12,7 +12,6 @@ import (
 	"github.com/augurysys/augury-node-tui/internal/platform"
 	"github.com/augurysys/augury-node-tui/internal/status"
 	"github.com/augurysys/augury-node-tui/internal/styles"
-	"github.com/augurysys/augury-node-tui/internal/visual/diagram"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -34,8 +33,6 @@ type Model struct {
 	Height                int
 	nixState              engine.NixState
 	platformTable         *components.DataTable
-	metricsBar            components.MetricsBar
-	showMetrics           bool
 }
 
 func NewModel(st status.RepoStatus, platforms []platform.Platform) *Model {
@@ -50,7 +47,6 @@ func NewModel(st status.RepoStatus, platforms []platform.Platform) *Model {
 		Selected:              sel,
 		DeveloperDownloads:    idx,
 		DeveloperDownloadsErr: err,
-		metricsBar:            components.MetricsBar{},
 	}
 	m.initPlatformTable()
 	return m
@@ -114,6 +110,7 @@ func (m *Model) buildActionKeys() []components.KeyBinding {
 		keys = append(keys, components.KeyBinding{Key: "h", Label: "hydrate"})
 	}
 
+	keys = append(keys, components.KeyBinding{Key: "a", Label: "replay"})
 	keys = append(keys, components.KeyBinding{Key: "c", Label: "caches"})
 	keys = append(keys, components.KeyBinding{Key: "v", Label: "validations"})
 	keys = append(keys, components.KeyBinding{Key: "o", Label: "hints"})
@@ -162,18 +159,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.Width = msg.Width
 		m.Height = msg.Height
-		m.metricsBar.Width = msg.Width
 		m.platformTable.SetWidth(msg.Width)
 
 		if msg.Height > 0 {
-			// Calculate remaining height for table (title, diagram, card, metrics, header, key help)
-			reservedHeight := 22
-			if msg.Width < diagram.MinDiagramWidth {
-				reservedHeight -= 8 // No diagram if narrow
-			}
-			if !m.showMetrics {
-				reservedHeight -= 1 // No metrics bar if disabled
-			}
+			// ScreenLayout: top bar, separator, content (repo card + platform header), separator, bottom help
+			reservedHeight := 14
 			tableHeight := msg.Height - reservedHeight
 			if tableHeight < 5 {
 				tableHeight = 5

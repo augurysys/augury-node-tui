@@ -246,28 +246,6 @@ func TestDeveloperDownloads_ViewShowsUnavailableWhenParseFails(t *testing.T) {
 	}
 }
 
-func TestDiagram_HomeViewIncludesDiagramWhenWideEnough(t *testing.T) {
-	st := status.RepoStatus{Root: "/x", Branch: "main", SHA: "x"}
-	m := NewModel(st, platform.Registry())
-	_, _ = m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
-	view := m.View()
-	if !strings.Contains(view, "\u250c") {
-		t.Errorf("View must include platform flow diagram (box-drawing) when width >= 60; got %q", view)
-	}
-}
-
-func TestDiagram_HomeViewExcludesDiagramWhenTooNarrow(t *testing.T) {
-	st := status.RepoStatus{Root: "/x", Branch: "main", SHA: "x"}
-	m := NewModel(st, platform.Registry())
-	_, _ = m.Update(tea.WindowSizeMsg{Width: 40, Height: 24})
-	view := m.View()
-	// Diagram contains "Build" and "Hydrate" in flow boxes; key hints have "build"/"hydrate" (lowercase).
-	// The diagram has "│Build│" - check for the diagram's flow structure.
-	if strings.Contains(view, "│Build│") {
-		t.Errorf("View should not include platform flow diagram when width < 60")
-	}
-}
-
 func TestDeveloperDownloads_MoxaUc3100UlrpmResolvesFromIndex(t *testing.T) {
 	dir := t.TempDir()
 	dd := filepath.Join(dir, "developer-downloads")
