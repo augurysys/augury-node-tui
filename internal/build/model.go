@@ -102,6 +102,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		switch s {
+		case "c":
+			if m.isBuilding() {
+				return m, func() tea.Msg { return CancelBuildMsg{} }
+			}
+		case "t":
+			if m.hasFailed() {
+				return m, func() tea.Msg { return StartBuildMsg{} }
+			}
 		case "enter":
 			m.nixBlockedReason = ""
 			return m, func() tea.Msg { return ConfirmPlanMsg{} }
@@ -315,7 +323,7 @@ func (m *Model) buildActionKeys() []components.KeyBinding {
 	if m.isBuilding() {
 		keys = append(keys, components.KeyBinding{Key: "c", Label: "cancel"})
 	} else if m.hasFailed() {
-		keys = append(keys, components.KeyBinding{Key: "r", Label: "retry"})
+		keys = append(keys, components.KeyBinding{Key: "t", Label: "retry"})
 	}
 
 	return keys
