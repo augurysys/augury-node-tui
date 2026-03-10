@@ -293,16 +293,35 @@ func (m *WizardModel) renderHelpPanel() string {
 			}
 		}
 	case 3:
-		if m.stepInstall != nil && m.stepInstall.state == "ready" && !m.stepInstall.alreadyInstalled {
-			keys = []string{
-				styles.KeyBinding("i", "auto-install"),
-				styles.KeyBinding("c", "copy cmd"),
-				styles.KeyBinding("s", "skip"),
-				styles.KeyBinding("q", "quit"),
+		if m.stepInstall != nil {
+			switch m.stepInstall.state {
+			case "error":
+				keys = []string{
+					styles.KeyBinding("r", "retry"),
+					styles.KeyBinding("s", "skip"),
+					styles.KeyBinding("q", "quit"),
+				}
+			case "ready":
+				if m.stepInstall.alreadyInstalled {
+					keys = []string{
+						styles.KeyBinding("enter", "continue"),
+						styles.KeyBinding("q", "quit"),
+					}
+				} else {
+					keys = []string{
+						styles.KeyBinding("i", "auto-install"),
+						styles.KeyBinding("c", "copy cmd"),
+						styles.KeyBinding("s", "skip"),
+						styles.KeyBinding("q", "quit"),
+					}
+				}
+			default:
+				keys = []string{
+					styles.KeyBinding("q", "quit"),
+				}
 			}
 		} else {
 			keys = []string{
-				styles.KeyBinding("enter", "continue"),
 				styles.KeyBinding("q", "quit"),
 			}
 		}

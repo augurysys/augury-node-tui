@@ -12,7 +12,8 @@ import (
 )
 
 type InstallStepModel struct {
-	repoRoot         string
+	targetRepoRoot   string
+	tuiRepoRoot      string
 	builtBinary      string
 	alreadyInstalled bool
 	state            string
@@ -23,17 +24,19 @@ type InstallStepModel struct {
 	width            int
 }
 
-func NewInstallStep(repoRoot string) *InstallStepModel {
+func NewInstallStep(targetRepoRoot string) *InstallStepModel {
+	tuiRepoRoot, _ := os.Getwd()
 	return &InstallStepModel{
-		repoRoot: repoRoot,
-		state:    "building",
-		width:    80,
+		targetRepoRoot: targetRepoRoot,
+		tuiRepoRoot:    tuiRepoRoot,
+		state:          "building",
+		width:          80,
 	}
 }
 
 func (m *InstallStepModel) Init() tea.Cmd {
 	return func() tea.Msg {
-		binDir := filepath.Join(m.repoRoot, "bin")
+		binDir := filepath.Join(m.targetRepoRoot, "bin")
 		if err := os.MkdirAll(binDir, 0755); err != nil {
 			return BinaryBuiltMsg{Err: fmt.Sprintf("create bin dir: %v", err)}
 		}
@@ -41,7 +44,7 @@ func (m *InstallStepModel) Init() tea.Cmd {
 		binaryPath := filepath.Join(binDir, "augury-node-tui")
 
 		cmd := exec.Command("go", "build", "-o", binaryPath, "./cmd/augury-node-tui")
-		cmd.Dir = m.repoRoot
+		cmd.Dir = m.tuiRepoRoot
 		if output, err := cmd.CombinedOutput(); err != nil {
 			return BinaryBuiltMsg{Err: fmt.Sprintf("build failed: %v\n%s", err, output)}
 		}
@@ -167,8 +170,6 @@ func (m *InstallStepModel) View() string {
 			}
 		}
 		
-		lines = append(lines, "")
-		lines = append(lines, "  "+styles.KeyBinding("r", "Retry")+"  "+styles.KeyBinding("s", "Skip")+"  "+styles.KeyBinding("q", "Quit"))
 		return styles.Border.Render(strings.Join(lines, "\n"))
 	}
 
@@ -181,8 +182,6 @@ func (m *InstallStepModel) View() string {
 
 	if m.alreadyInstalled {
 		lines = append(lines, "  "+styles.Success.Render("Already installed to /usr/local/bin"))
-		lines = append(lines, "")
-		lines = append(lines, "  "+styles.KeyBinding("enter", "Continue"))
 	} else {
 		targetPath := "/usr/local/bin/augury-node-tui"
 		lines = append(lines, "  Installation options:")
@@ -231,14 +230,6 @@ func (m *InstallStepModel) View() string {
 			}
 			lines = append(lines, "")
 		}
-
-		keys := []string{
-			styles.KeyBinding("i", "Auto-install"),
-			styles.KeyBinding("c", "Copy cmd"),
-			styles.KeyBinding("s", "Skip"),
-			styles.KeyBinding("q", "Quit"),
-		}
-		lines = append(lines, "  "+strings.Join(keys, "  "))
 	}
 
 	return styles.Border.Render(strings.Join(lines, "\n"))
