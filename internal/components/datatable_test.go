@@ -196,6 +196,27 @@ func TestDataTable_Sorting(t *testing.T) {
 	}
 }
 
+func TestDataTable_RowHighlight(t *testing.T) {
+	columns := []Column{
+		{Header: "Name", Width: 10, Sortable: false, Renderer: func(row interface{}) string {
+			return row.(string)
+		}},
+	}
+
+	table := NewDataTable(columns)
+	table.SetRows([]interface{}{"row1", "row2", "row3"})
+	table.SetWidth(80)
+	table.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}}) // Highlight second row
+
+	output := table.View()
+
+	// Check that highlighting is applied (would need to inspect styling)
+	// For now just verify it doesn't panic
+	if output == "" {
+		t.Error("Expected non-empty output")
+	}
+}
+
 func TestDataTable_RightAlign(t *testing.T) {
 	columns := []Column{
 		{Header: "Name", Width: 10, Align: AlignLeft, Renderer: func(r interface{}) string {

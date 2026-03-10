@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/mattn/go-runewidth"
 
 	"github.com/augurysys/augury-node-tui/internal/ansi"
@@ -184,7 +183,6 @@ func (t *DataTable) adjustScroll() {
 
 // View renders the table
 func (t *DataTable) View() string {
-	palette := styles.DefaultPalette()
 	typo := styles.DefaultTypography()
 
 	var result strings.Builder
@@ -231,19 +229,17 @@ func (t *DataTable) View() string {
 				content = col.Renderer(row)
 			}
 			cell := alignCell(content, col.Width, col.Align)
-
-			// Highlight selected row
-			if i == t.selectedIdx {
-				highlightStyle := lipgloss.NewStyle().
-					Foreground(lipgloss.Color(palette.AccentMauve)).
-					Bold(true)
-				cell = highlightStyle.Render(cell)
-			}
-
 			cells = append(cells, cell)
 		}
 
-		result.WriteString(strings.Join(cells, " │ ") + "\n")
+		rowStr := strings.Join(cells, " │ ")
+
+		// Apply highlight if this is the cursor row
+		if i == t.selectedIdx {
+			rowStr = styles.RowHighlight.Render(rowStr)
+		}
+
+		result.WriteString(rowStr + "\n")
 	}
 
 	return result.String()
