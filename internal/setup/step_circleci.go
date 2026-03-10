@@ -33,6 +33,9 @@ func (s *CircleCIStepModel) Update(msg tea.Msg) (*CircleCIStepModel, tea.Cmd) {
 			}
 			return s, func() tea.Msg { return NextStepMsg{} }
 		case tea.KeyRunes:
+			if len(msg.Runes) == 1 && msg.Runes[0] == 'q' && s.userInput == "" {
+				return s, tea.Quit
+			}
 			s.userInput += string(msg.Runes)
 		case tea.KeyBackspace:
 			runes := []rune(s.userInput)

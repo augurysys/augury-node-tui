@@ -62,6 +62,9 @@ func (s *RootStep) Update(msg tea.Msg) (*RootStep, tea.Cmd) {
 				s.cycleNext()
 			}
 		case tea.KeyRunes:
+			if len(msg.Runes) == 1 && msg.Runes[0] == 'q' && s.userInput == "" && !s.menuActive {
+				return s, tea.Quit
+			}
 			if s.menuActive {
 				s.exitMenu(true)
 			}

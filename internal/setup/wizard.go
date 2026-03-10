@@ -325,8 +325,7 @@ func (m *WizardModel) renderHelpPanel() string {
 		}
 	case 5:
 		keys = []string{
-			styles.KeyBinding("enter", "confirm"),
-			styles.KeyBinding("s", "skip"),
+			styles.KeyBinding("enter", "confirm or skip"),
 			styles.KeyBinding("q", "quit"),
 		}
 	case 6:
