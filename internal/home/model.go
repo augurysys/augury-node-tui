@@ -14,7 +14,6 @@ import (
 	"github.com/augurysys/augury-node-tui/internal/styles"
 	"github.com/augurysys/augury-node-tui/internal/visual/diagram"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // PlatformEntry holds platform data for the DataTable
@@ -107,6 +106,36 @@ func (m *Model) renderOutputPath(row interface{}) string {
 // Note: Platform table is refreshed only on toggle. If DeveloperDownloads changes
 // externally (e.g. after build/hydrate), the table state will be stale until the
 // next toggle or refresh.
+func (m *Model) buildActionKeys() []components.KeyBinding {
+	var keys []components.KeyBinding
+
+	// Dynamic keys based on selection
+	keys = append(keys, components.KeyBinding{Key: "space", Label: "select"})
+
+	selectedCount := m.countSelected()
+	if selectedCount > 0 {
+		keys = append(keys, components.KeyBinding{Key: "b", Label: "build"})
+		keys = append(keys, components.KeyBinding{Key: "h", Label: "hydrate"})
+	}
+
+	keys = append(keys, components.KeyBinding{Key: "c", Label: "caches"})
+	keys = append(keys, components.KeyBinding{Key: "v", Label: "validations"})
+	keys = append(keys, components.KeyBinding{Key: "o", Label: "hints"})
+	keys = append(keys, components.KeyBinding{Key: "p", Label: "pipeline"})
+
+	return keys
+}
+
+func (m *Model) countSelected() int {
+	count := 0
+	for _, selected := range m.Selected {
+		if selected {
+			count++
+		}
+	}
+	return count
+}
+
 func (m *Model) fetchPlatformData() []interface{} {
 	rows := make([]interface{}, 0, len(m.Platforms))
 	for _, p := range m.Platforms {
@@ -190,18 +219,36 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) View() string {
-	var sections []string
+	layout := components.ScreenLayout{
+		Breadcrumb: []string{"🚀 Home"},
+		Context:    m.buildContext(),
+		Content:    m.renderContent(),
+		ActionKeys: m.buildActionKeys(),
+		NavKeys: []components.KeyBinding{
+			{Key: "j/k", Label: "navigate"},
+			{Key: "q", Label: "quit"},
+		},
+		Width:  m.Width,
+		Height: m.Height,
+	}
+	return layout.Render()
+}
 
-	// Title
-	title := styles.Title.Render("🚀 Augury Node Builder")
-	sections = append(sections, title)
+func (m *Model) buildContext() string {
+	parts := []string{m.Status.Branch}
 
-	// Diagram (if wide enough)
-	if m.Width >= diagram.MinDiagramWidth {
-		sections = append(sections, diagram.PlatformFlow(m.Platforms))
+	selectedCount := m.countSelected()
+	if selectedCount > 0 {
+		parts = append(parts, fmt.Sprintf("%d selected", selectedCount))
 	}
 
-	// Repo status card
+	return strings.Join(parts, "  •  ")
+}
+
+func (m *Model) renderContent() string {
+	var sections []string
+
+	// Repo status card (bordered box - already using Card component)
 	repoCard := primitives.Card{
 		Title:   "📁 Repository",
 		Content: m.renderRepoStatus(),
@@ -213,25 +260,16 @@ func (m *Model) View() string {
 	}
 	sections = append(sections, repoCard.Render(width))
 
-	// Metrics bar (if enabled)
-	if m.showMetrics {
-		sections = append(sections, m.metricsBar.Render())
-	}
-
-	// Platform table section
+	// Platform table section (no border)
 	platformHeader := styles.Header.Render("🎯 Platforms")
 	hint := styles.Dim.Render(" (j/k: navigate • space: toggle)")
 	if m.DeveloperDownloads == nil {
 		hint += "  " + styles.Warning.Render("⚠ developer-downloads unavailable")
 	}
 	platformSection := platformHeader + hint + "\n" + m.platformTable.View()
-	sections = append(sections, styles.Section.Render(platformSection))
+	sections = append(sections, platformSection)
 
-	// Key Bindings
-	keyHelp := m.renderKeyHelp()
-	sections = append(sections, styles.KeyHelp.Render(keyHelp))
-
-	return lipgloss.JoinVertical(lipgloss.Left, sections...)
+	return strings.Join(sections, "\n\n")
 }
 
 func (m *Model) renderRepoStatus() string {
@@ -281,21 +319,6 @@ func nixStatusLabel(nix engine.NixState) string {
 		return "ready"
 	}
 	return "not ready"
-}
-
-func (m *Model) renderKeyHelp() string {
-	keys := []string{
-		styles.KeyBinding("b", "build"),
-		styles.KeyBinding("h", "hydrate"),
-		styles.KeyBinding("c", "caches"),
-		styles.KeyBinding("v", "validations"),
-		styles.KeyBinding("o", "hints"),
-		styles.KeyBinding("p", "pipeline"),
-		styles.KeyBinding("a", "replay"),
-		styles.KeyBinding("r", "refresh"),
-		styles.KeyBinding("q", "quit"),
-	}
-	return strings.Join(keys, "  •  ")
 }
 
 func (m *Model) TogglePlatform(id string) {
