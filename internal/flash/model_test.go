@@ -493,7 +493,7 @@ func TestModel_ViewFlashing_MP255(t *testing.T) {
 	if !strings.Contains(view, "Method: uuu") {
 		t.Error("View should contain method uuu")
 	}
-	if !strings.Contains(view, "Deploy.sh integration coming soon") {
+	if !strings.Contains(view, "Flash with deploy.sh") {
 		t.Error("View should contain MP255 step description")
 	}
 	if !strings.Contains(view, "Flashing will be implemented in next tasks") {
