@@ -12,7 +12,31 @@
 | v | Validations |
 | o | Hints |
 | r | Refresh Nix readiness |
+| f | Flash |
 | b, esc | Back to home (from sub-screens) |
+
+## Flash Screen
+
+**Access:** Press `f` from Home
+
+**Note:** `Esc` from any flash sub-screen returns to Home (app-level handler).
+
+### Platform Selection
+- `j/k` or `↑/↓`: Navigate platforms
+- `Enter`: Select platform
+- `Esc`: Back to Home
+- `q`: Quit
+
+### Method Selection (MP255 only)
+- `1/2`: Choose method by number
+- `j/k` or `↑/↓`: Navigate methods
+- `Enter`: Select method
+- `Esc`: Back to Home
+
+### Flashing
+- `Esc`: Back to Home
+
+*Note: Step execution (Enter to continue) and cancel (c) will be implemented in a future phase.*
 
 ## Caches screen
 
