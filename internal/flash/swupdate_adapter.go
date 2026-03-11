@@ -6,7 +6,62 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
+
+// ResolveSWUFile resolves basePath to a single .swu file path.
+// - If basePath is a file ending in .swu, returns it as-is.
+// - If basePath is a directory, finds *.swu files and returns the latest by ModTime.
+// - Otherwise returns an error.
+func ResolveSWUFile(basePath string) (string, error) {
+	info, err := os.Stat(basePath)
+	if err != nil {
+		return "", fmt.Errorf("invalid path: %w", err)
+	}
+
+	if info.Mode().IsRegular() {
+		if strings.HasSuffix(strings.ToLower(basePath), ".swu") {
+			return basePath, nil
+		}
+		return "", fmt.Errorf("invalid path: not a .swu file")
+	}
+
+	if !info.IsDir() {
+		return "", fmt.Errorf("invalid path: not a file or directory")
+	}
+
+	pattern := filepath.Join(basePath, "*.swu")
+	matches, err := filepath.Glob(pattern)
+	if err != nil {
+		return "", fmt.Errorf("invalid path: %w", err)
+	}
+	if len(matches) == 0 {
+		return "", fmt.Errorf("no .swu files found in directory")
+	}
+	if len(matches) == 1 {
+		return matches[0], nil
+	}
+
+	// Multiple files: return latest by ModTime
+	var latest string
+	var latestMod int64
+	for _, p := range matches {
+		fi, err := os.Stat(p)
+		if err != nil {
+			continue
+		}
+		mtime := fi.ModTime().Unix()
+		if mtime > latestMod {
+			latestMod = mtime
+			latest = p
+		}
+	}
+	if latest == "" {
+		// Fallback if all Stat failed (e.g. permission)
+		return matches[0], nil
+	}
+	return latest, nil
+}
 
 // SWUpdateAdapter wraps augury_update for SWUpdate-based platforms
 type SWUpdateAdapter struct {
@@ -15,13 +70,18 @@ type SWUpdateAdapter struct {
 	imagePath string
 }
 
-// NewSWUpdateAdapter creates a new SWUpdate adapter
-func NewSWUpdateAdapter(root, platform, imagePath string) *SWUpdateAdapter {
+// NewSWUpdateAdapter creates a new SWUpdate adapter. It resolves basePath to a
+// single .swu file (file or directory containing .swu) and stores the resolved path.
+func NewSWUpdateAdapter(root, platform, basePath string) (*SWUpdateAdapter, error) {
+	resolved, err := ResolveSWUFile(basePath)
+	if err != nil {
+		return nil, err
+	}
 	return &SWUpdateAdapter{
 		root:      root,
 		platform:  platform,
-		imagePath: imagePath,
-	}
+		imagePath: resolved,
+	}, nil
 }
 
 // PlatformType returns PlatformTypeSWUpdate
@@ -81,11 +141,15 @@ func (a *SWUpdateAdapter) ExecuteStep(ctx context.Context, step FlashStep) (stri
 }
 
 // CanFlash validates prerequisites. The imagePath parameter is ignored;
-// the adapter always validates a.imagePath (the path it was constructed with).
+// the adapter always validates a.imagePath (the resolved .swu file).
 func (a *SWUpdateAdapter) CanFlash(imagePath string) error {
-	// Check image file exists (validate what will actually be used)
-	if _, err := os.Stat(a.imagePath); err != nil {
+	// Check resolved .swu file exists and is a regular file (not directory)
+	info, err := os.Stat(a.imagePath)
+	if err != nil {
 		return fmt.Errorf("image file not found: %w", err)
+	}
+	if !info.Mode().IsRegular() {
+		return fmt.Errorf("image path is not a regular file: %s", a.imagePath)
 	}
 
 	// Check augury_update exists

@@ -195,7 +195,13 @@ func (m *Model) handlePlatformSelected(msg PlatformSelectedMsg) (tea.Model, tea.
 		m.cursor = 0 // Reset cursor for method selection
 
 	case PlatformTypeSWUpdate:
-		m.adapter = NewSWUpdateAdapter(m.Status.Root, selectedPlatform.ID, outputPath)
+		adapter, err := NewSWUpdateAdapter(m.Status.Root, selectedPlatform.ID, outputPath)
+		if err != nil {
+			m.state = stateError
+			m.err = err
+			return m, nil
+		}
+		m.adapter = adapter
 		// Validate prerequisites
 		if err := m.adapter.CanFlash(outputPath); err != nil {
 			m.state = stateError

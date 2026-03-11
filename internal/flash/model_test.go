@@ -31,9 +31,13 @@ func setupValidFlashRoot(t *testing.T) (string, []platform.Platform) {
 		t.Fatal(err)
 	}
 
-	// SWUpdate: image path (dir or file) + augury_update
+	// SWUpdate: image path (dir with .swu) + augury_update
 	cassiaPath := filepath.Join(root, "pkg", "cassia-x2000")
 	if err := os.MkdirAll(cassiaPath, 0755); err != nil {
+		t.Fatal(err)
+	}
+	swuPath := filepath.Join(cassiaPath, "image.swu")
+	if err := os.WriteFile(swuPath, []byte("fake swu"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	auguryDir := filepath.Join(root, "common", "otsn")
