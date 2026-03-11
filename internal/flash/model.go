@@ -106,7 +106,40 @@ func (m *Model) handlePlatformSelectKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) handleMethodSelectKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// TODO: Implement method selection keys
+	if m.adapter == nil {
+		return m, nil
+	}
+
+	methods := m.adapter.GetMethods()
+
+	switch msg.String() {
+	case "1", "2", "3", "4", "5", "6", "7", "8", "9":
+		// Parse number key
+		idx := int(msg.Runes[0] - '1')
+		if idx >= 0 && idx < len(methods) {
+			m.selectedMethod = methods[idx].ID
+			m.state = stateFlashing
+			return m, nil
+		}
+	case "j", "down":
+		if m.cursor < len(methods)-1 {
+			m.cursor++
+		}
+	case "k", "up":
+		if m.cursor > 0 {
+			m.cursor--
+		}
+	case "enter":
+		if m.cursor >= 0 && m.cursor < len(methods) {
+			m.selectedMethod = methods[m.cursor].ID
+			m.state = stateFlashing
+			return m, nil
+		}
+	case "esc":
+		m.state = statePlatformSelect
+		m.cursor = 0
+	}
+
 	return m, nil
 }
 
@@ -209,7 +242,49 @@ func (m *Model) viewPlatformSelect() string {
 }
 
 func (m *Model) viewMethodSelect() string {
-	return "Method selection coming soon"
+	if m.adapter == nil {
+		return "No adapter"
+	}
+
+	methods := m.adapter.GetMethods()
+	if len(methods) == 0 {
+		return "No methods available"
+	}
+
+	content := styles.Title.Render("Choose Flash Method") + "\n\n"
+	content += fmt.Sprintf("Platform: %s\n\n", m.selectedPlatform)
+	content += "Select method:\n\n"
+
+	for i, method := range methods {
+		cursor := " "
+		if i == m.cursor {
+			cursor = ">"
+		}
+		content += fmt.Sprintf("%s %d) %s\n", cursor, i+1, method.Name)
+	}
+
+	if m.cursor >= 0 && m.cursor < len(methods) {
+		content += fmt.Sprintf("\n%s\n", methods[m.cursor].Description)
+	}
+
+	layout := components.ScreenLayout{
+		Breadcrumb: []string{"🚀 Home", "Flash", m.selectedPlatform},
+		Context:    "",
+		Content:    content,
+		ActionKeys: []components.KeyBinding{
+			{Key: "1/2", Label: "choose"},
+			{Key: "enter", Label: "confirm"},
+		},
+		NavKeys: []components.KeyBinding{
+			{Key: "j/k", Label: "navigate"},
+			{Key: "esc", Label: "back"},
+			{Key: "q", Label: "quit"},
+		},
+		Width:  m.Width,
+		Height: m.Height,
+	}
+
+	return layout.Render()
 }
 
 func (m *Model) viewFlashing() string {
