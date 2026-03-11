@@ -4,7 +4,7 @@ import "context"
 
 // FlashAdapter defines the interface for platform-specific flash implementations
 type FlashAdapter interface {
-	// PlatformType returns "mp255" or "swupdate"
+	// PlatformType returns PlatformTypeMP255 or PlatformTypeSWUpdate
 	PlatformType() string
 
 	// SupportsMethodSelection returns true if platform has multiple flash methods
