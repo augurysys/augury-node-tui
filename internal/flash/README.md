@@ -8,8 +8,8 @@ Firmware flashing for MP255 and SWUpdate platforms.
 - `messages.go`: Custom Bubbletea messages for flash events
 - `types.go`: Common types (PromptType, FlashMethod, FlashStep)
 - `adapter.go`: Platform-agnostic flash interface
-- `mp255_adapter.go`: Wraps deploy.sh for MP255
-- `swupdate_adapter.go`: Wraps augury_update for SWUpdate
+- `mp255_adapter.go`: Wraps deploy.sh for MP255; invokes `deploy.sh` to perform actual flashing
+- `swupdate_adapter.go`: Wraps augury_update for SWUpdate; when OutputRelPath is a directory, automatically resolves the `.swu` file within it
 - `platform.go`: Platform type detection
 
 ## States
@@ -44,13 +44,11 @@ go test ./internal/flash/...
 - Platform selection UI
 - Method selection UI (MP255)
 - Adapter pattern foundation
-- SWUpdate adapter (basic)
-- MP255 adapter (stub)
+- SWUpdate adapter (with .swu resolution from directories)
+- MP255 adapter (with deploy.sh integration)
 
 **TODO:**
-- MP255 deploy.sh integration
 - Step execution with output streaming
-- SWUpdate .swu file resolution (OutputRelPath is directory, need to find .swu file)
 - Error handling and retry
 - Log file capture
 - Cancel support
