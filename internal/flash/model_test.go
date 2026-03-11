@@ -129,7 +129,7 @@ func TestModel_PlatformSelectEnter(t *testing.T) {
 	m.cursor = 1 // Select cassia
 
 	// Press Enter
-	m2, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("enter")})
+	m2, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	_, ok := m2.(*Model)
 	if !ok {
 		t.Fatal("Update did not return *Model")
@@ -431,5 +431,152 @@ func TestModel_MethodSelectEsc(t *testing.T) {
 	}
 	if model2.cursor != 0 {
 		t.Errorf("After Esc, cursor = %d, want 0", model2.cursor)
+	}
+}
+
+func TestModel_ViewFlashing_MP255(t *testing.T) {
+	platforms := []platform.Platform{
+		{ID: "mp255-ulrpm", OutputRelPath: "pkg/mp255-ulrpm"},
+	}
+
+	st := status.RepoStatus{Root: "/tmp/test"}
+	m := NewModel(st, platforms)
+	m.state = statePlatformSelect
+
+	// Select MP255 → method select → select UUU → flashing
+	m2, _ := m.Update(PlatformSelectedMsg{PlatformID: "mp255-ulrpm"})
+	model, ok := m2.(*Model)
+	if !ok {
+		t.Fatal("Update did not return *Model")
+	}
+	m3, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("1")})
+	model2, ok := m3.(*Model)
+	if !ok {
+		t.Fatal("Update did not return *Model")
+	}
+	model2.Width = 80
+	model2.Height = 24
+
+	view := model2.View()
+
+	if !strings.Contains(view, "Flashing Firmware") {
+		t.Error("View should contain 'Flashing Firmware'")
+	}
+	if !strings.Contains(view, "mp255-ulrpm") {
+		t.Error("View should contain platform name mp255-ulrpm")
+	}
+	if !strings.Contains(view, "Method: uuu") {
+		t.Error("View should contain method uuu")
+	}
+	if !strings.Contains(view, "Deploy.sh integration coming soon") {
+		t.Error("View should contain MP255 step description")
+	}
+	if !strings.Contains(view, "Flashing will be implemented in next tasks") {
+		t.Error("View should contain placeholder message")
+	}
+	if !strings.Contains(view, "Ready to flash") {
+		t.Error("View should contain context 'Ready to flash'")
+	}
+}
+
+func TestModel_ViewFlashing_SWUpdate(t *testing.T) {
+	platforms := []platform.Platform{
+		{ID: "cassia-x2000", OutputRelPath: "pkg/cassia-x2000"},
+	}
+
+	st := status.RepoStatus{Root: "/tmp/test"}
+	m := NewModel(st, platforms)
+	m.state = statePlatformSelect
+
+	// Select Cassia (SWUpdate) → goes straight to flashing
+	m2, _ := m.Update(PlatformSelectedMsg{PlatformID: "cassia-x2000"})
+	model, ok := m2.(*Model)
+	if !ok {
+		t.Fatal("Update did not return *Model")
+	}
+	model.Width = 80
+	model.Height = 24
+
+	view := model.View()
+
+	if !strings.Contains(view, "Flashing Firmware") {
+		t.Error("View should contain 'Flashing Firmware'")
+	}
+	if !strings.Contains(view, "cassia-x2000") {
+		t.Error("View should contain platform name cassia-x2000")
+	}
+	if !strings.Contains(view, "Verify firmware image") {
+		t.Error("View should contain SWUpdate step descriptions")
+	}
+	if !strings.Contains(view, "Flash firmware to device") {
+		t.Error("View should contain SWUpdate step descriptions")
+	}
+	if !strings.Contains(view, "Reboot device to apply firmware") {
+		t.Error("View should contain SWUpdate step descriptions")
+	}
+}
+
+func TestModel_FlashingEsc_MP255(t *testing.T) {
+	platforms := []platform.Platform{
+		{ID: "mp255-ulrpm", OutputRelPath: "pkg/mp255-ulrpm"},
+	}
+
+	st := status.RepoStatus{Root: "/tmp/test"}
+	m := NewModel(st, platforms)
+	m.state = statePlatformSelect
+
+	m2, _ := m.Update(PlatformSelectedMsg{PlatformID: "mp255-ulrpm"})
+	model, ok := m2.(*Model)
+	if !ok {
+		t.Fatal("Update did not return *Model")
+	}
+	m3, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("1")})
+	model2, ok := m3.(*Model)
+	if !ok {
+		t.Fatal("Update did not return *Model")
+	}
+
+	// Press Esc from flashing → back to method select
+	m4, _ := model2.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	model3, ok := m4.(*Model)
+	if !ok {
+		t.Fatal("Update did not return *Model")
+	}
+
+	if model3.state != stateMethodSelect {
+		t.Errorf("After Esc from flashing (MP255), state = %v, want %v", model3.state, stateMethodSelect)
+	}
+	if model3.selectedMethod != "" {
+		t.Errorf("selectedMethod should be cleared, got %q", model3.selectedMethod)
+	}
+}
+
+func TestModel_FlashingEsc_SWUpdate(t *testing.T) {
+	platforms := []platform.Platform{
+		{ID: "cassia-x2000", OutputRelPath: "pkg/cassia-x2000"},
+	}
+
+	st := status.RepoStatus{Root: "/tmp/test"}
+	m := NewModel(st, platforms)
+	m.state = statePlatformSelect
+
+	m2, _ := m.Update(PlatformSelectedMsg{PlatformID: "cassia-x2000"})
+	model, ok := m2.(*Model)
+	if !ok {
+		t.Fatal("Update did not return *Model")
+	}
+
+	// Press Esc from flashing → back to platform select
+	m3, _ := model.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	model2, ok := m3.(*Model)
+	if !ok {
+		t.Fatal("Update did not return *Model")
+	}
+
+	if model2.state != statePlatformSelect {
+		t.Errorf("After Esc from flashing (SWUpdate), state = %v, want %v", model2.state, statePlatformSelect)
+	}
+	if model2.adapter != nil {
+		t.Error("adapter should be cleared when going back from SWUpdate flashing")
 	}
 }

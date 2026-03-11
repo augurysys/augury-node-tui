@@ -79,6 +79,8 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handlePlatformSelectKeys(msg)
 	case stateMethodSelect:
 		return m.handleMethodSelectKeys(msg)
+	case stateFlashing:
+		return m.handleFlashingKeys(msg)
 	default:
 		return m, nil
 	}
@@ -140,6 +142,20 @@ func (m *Model) handleMethodSelectKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.cursor = 0
 	}
 
+	return m, nil
+}
+
+func (m *Model) handleFlashingKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if msg.String() == "esc" {
+		if m.selectedMethod != "" {
+			m.selectedMethod = ""
+			m.state = stateMethodSelect
+		} else {
+			m.adapter = nil
+			m.state = statePlatformSelect
+			m.cursor = 0
+		}
+	}
 	return m, nil
 }
 
@@ -288,7 +304,40 @@ func (m *Model) viewMethodSelect() string {
 }
 
 func (m *Model) viewFlashing() string {
-	return "Flashing..."
+	if m.adapter == nil {
+		return "No adapter"
+	}
+
+	steps := m.adapter.GetSteps(m.selectedMethod)
+
+	content := styles.Title.Render("Flashing Firmware") + "\n\n"
+	content += fmt.Sprintf("Platform: %s\n", m.selectedPlatform)
+	if m.selectedMethod != "" {
+		content += fmt.Sprintf("Method: %s\n\n", m.selectedMethod)
+	} else {
+		content += "\n"
+	}
+
+	for i, step := range steps {
+		content += fmt.Sprintf("%d. %s\n", i+1, step.Description)
+	}
+
+	content += "\n\nFlashing will be implemented in next tasks."
+
+	layout := components.ScreenLayout{
+		Breadcrumb: []string{"🚀 Home", "Flash", m.selectedPlatform},
+		Context:    "Ready to flash",
+		Content:    content,
+		ActionKeys: []components.KeyBinding{},
+		NavKeys: []components.KeyBinding{
+			{Key: "esc", Label: "back"},
+			{Key: "q", Label: "quit"},
+		},
+		Width:  m.Width,
+		Height: m.Height,
+	}
+
+	return layout.Render()
 }
 
 func (m *Model) viewComplete() string {
