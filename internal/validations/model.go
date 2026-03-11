@@ -177,15 +177,25 @@ func (m *Model) CommandForPreset(preset string) (run.RunSpec, bool) {
 	}, true
 }
 
-func (m *Model) View() string {
+func (m *Model) buildContext() string {
+	return m.Status.Branch
+}
+
+func (m *Model) buildActionKeys() []components.KeyBinding {
+	return []components.KeyBinding{
+		{Key: "1", Label: "all"},
+		{Key: "2", Label: "shellcheck"},
+		{Key: "3", Label: "bats"},
+		{Key: "4", Label: "parse-test"},
+	}
+}
+
+func (m *Model) renderContent() string {
 	var b strings.Builder
 	if m.Width >= diagram.MinDiagramWidth {
 		b.WriteString(diagram.ValidationPipeline())
 		b.WriteString("\n")
 	}
-	b.WriteString("Validations\n")
-	b.WriteString("1 all | 2 shellcheck | 3 bats | 4 parse-test\n")
-	b.WriteString("Presets: all, shellcheck-only, bats-only, parse-test-only\n")
 
 	rows := m.buildRows()
 	columns := []components.Column{
@@ -220,7 +230,12 @@ func (m *Model) View() string {
 	table := components.NewDataTable(columns)
 	table.SetWidth(m.Width)
 	if m.Height > 0 {
-		table.SetHeight(m.Height)
+		reservedHeight := 14
+		tableHeight := m.Height - reservedHeight
+		if tableHeight < 5 {
+			tableHeight = 5
+		}
+		table.SetHeight(tableHeight)
 	} else {
 		table.SetHeight(20)
 	}
@@ -233,6 +248,22 @@ func (m *Model) View() string {
 
 	b.WriteString(table.View())
 	return b.String()
+}
+
+func (m *Model) View() string {
+	layout := components.ScreenLayout{
+		Breadcrumb: []string{"🚀 Home", "Validations"},
+		Context:    m.buildContext(),
+		Content:    m.renderContent(),
+		ActionKeys: m.buildActionKeys(),
+		NavKeys: []components.KeyBinding{
+			{Key: "esc", Label: "back"},
+			{Key: "q", Label: "quit"},
+		},
+		Width:  m.Width,
+		Height: m.Height,
+	}
+	return layout.Render()
 }
 
 func (m *Model) buildRows() []Validation {

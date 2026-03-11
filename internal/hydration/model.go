@@ -15,8 +15,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-const keyLegend = "D dry-run | H hydrate | b/esc back"
-
 // Artifact represents a hydration artifact for display in the table
 type Artifact struct {
 	Name     string
@@ -228,9 +226,19 @@ func (m *Model) CommandDispatch(platformID string) (run.RunSpec, bool) {
 	}, true
 }
 
-func (m *Model) View() string {
+func (m *Model) buildContext() string {
+	return m.Status.Branch
+}
+
+func (m *Model) buildActionKeys() []components.KeyBinding {
+	return []components.KeyBinding{
+		{Key: "D", Label: "dry-run"},
+		{Key: "H", Label: "hydrate"},
+	}
+}
+
+func (m *Model) renderContent() string {
 	var b strings.Builder
-	b.WriteString(keyLegend + "\n")
 
 	rows := m.buildRows()
 	if len(rows) == 0 {
@@ -238,7 +246,6 @@ func (m *Model) View() string {
 		return b.String()
 	}
 
-	// When not using artifacts, check availability from DryRunRows
 	if len(m.artifacts) == 0 {
 		drRows := m.DryRunRows()
 		available := false
@@ -307,7 +314,12 @@ func (m *Model) View() string {
 	table := components.NewDataTable(columns)
 	table.SetWidth(m.Width)
 	if m.Height > 0 {
-		table.SetHeight(m.Height)
+		reservedHeight := 14
+		tableHeight := m.Height - reservedHeight
+		if tableHeight < 5 {
+			tableHeight = 5
+		}
+		table.SetHeight(tableHeight)
 	} else {
 		table.SetHeight(20)
 	}
@@ -320,6 +332,22 @@ func (m *Model) View() string {
 
 	b.WriteString(table.View())
 	return b.String()
+}
+
+func (m *Model) View() string {
+	layout := components.ScreenLayout{
+		Breadcrumb: []string{"🚀 Home", "Hydration"},
+		Context:    m.buildContext(),
+		Content:    m.renderContent(),
+		ActionKeys: m.buildActionKeys(),
+		NavKeys: []components.KeyBinding{
+			{Key: "esc", Label: "back"},
+			{Key: "q", Label: "quit"},
+		},
+		Width:  m.Width,
+		Height: m.Height,
+	}
+	return layout.Render()
 }
 
 func (m *Model) buildRows() []Artifact {

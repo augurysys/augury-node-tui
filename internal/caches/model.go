@@ -2,7 +2,6 @@ package caches
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/augurysys/augury-node-tui/internal/components"
@@ -220,7 +219,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.metricsBar.Width = msg.Width
 		m.cacheTable.SetWidth(m.Width)
 		if m.Height > 0 {
-			m.cacheTable.SetHeight(m.Height)
+			reservedHeight := 14
+			tableHeight := msg.Height - reservedHeight
+			if tableHeight < 5 {
+				tableHeight = 5
+			}
+			m.cacheTable.SetHeight(tableHeight)
 		} else {
 			m.cacheTable.SetHeight(20)
 		}
@@ -323,7 +327,38 @@ func (m *Model) RowStatus(platformID string) string {
 	return m.rowStatus[platformID]
 }
 
-func (m *Model) View() string {
+func (m *Model) buildContext() string {
+	parts := []string{m.Status.Branch, m.ActiveTabName()}
+	if m.disabledReason != "" {
+		parts = append(parts, "disabled: "+m.disabledReason)
+	}
+	if m.confirmShown {
+		parts = append(parts, "confirm (y/n)")
+	}
+	return strings.Join(parts, "  •  ")
+}
+
+func (m *Model) buildActionKeys() []components.KeyBinding {
+	keys := []components.KeyBinding{
+		{Key: "tab", Label: "switch tab"},
+	}
+	if m.activeTab == TabBuildUnit {
+		keys = append(keys,
+			components.KeyBinding{Key: "B", Label: "build"},
+			components.KeyBinding{Key: "R", Label: "pull"},
+			components.KeyBinding{Key: "D", Label: "delete"},
+		)
+	} else {
+		keys = append(keys,
+			components.KeyBinding{Key: "P", Label: "pull"},
+			components.KeyBinding{Key: "U", Label: "push"},
+			components.KeyBinding{Key: "X", Label: "clean"},
+		)
+	}
+	return keys
+}
+
+func (m *Model) renderContent() string {
 	var b strings.Builder
 	b.WriteString(m.metricsBar.Render())
 	b.WriteString("\n")
@@ -331,16 +366,26 @@ func (m *Model) View() string {
 		b.WriteString(diagram.CacheTopology(m.activeTab))
 		b.WriteString("\n")
 	}
-	b.WriteString("Caches\n")
-	b.WriteString(fmt.Sprintf("Tab: %s\n", m.ActiveTabName()))
-	if m.disabledReason != "" {
-		b.WriteString(fmt.Sprintf("Disabled: %s\n", m.disabledReason))
-	}
 	if m.confirmShown {
 		b.WriteString("Confirm destructive action? (y/n)\n")
 		return b.String()
 	}
-	b.WriteString("Build-unit: B=build R=pull D=delete | Platform: P=pull U=push X=clean\n")
 	b.WriteString(m.cacheTable.View())
 	return b.String()
+}
+
+func (m *Model) View() string {
+	layout := components.ScreenLayout{
+		Breadcrumb: []string{"🚀 Home", "Caches"},
+		Context:    m.buildContext(),
+		Content:    m.renderContent(),
+		ActionKeys: m.buildActionKeys(),
+		NavKeys: []components.KeyBinding{
+			{Key: "esc", Label: "back"},
+			{Key: "q", Label: "quit"},
+		},
+		Width:  m.Width,
+		Height: m.Height,
+	}
+	return layout.Render()
 }

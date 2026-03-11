@@ -3,6 +3,7 @@ package hints
 import (
 	"strings"
 
+	"github.com/augurysys/augury-node-tui/internal/components"
 	"github.com/augurysys/augury-node-tui/internal/components/primitives"
 	"github.com/augurysys/augury-node-tui/internal/engine"
 	"github.com/augurysys/augury-node-tui/internal/platform"
@@ -15,6 +16,7 @@ type Model struct {
 	Platforms []platform.Platform
 	NixReady  bool
 	Width     int
+	Height    int
 	nixState  engine.NixState
 }
 
@@ -35,13 +37,26 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.Width = msg.Width
+		m.Height = msg.Height
 		return m, nil
 	}
 	return m, nil
 }
 
-func (m *Model) View() string {
-	// Build hints content
+func (m *Model) buildContext() string {
+	return m.Status.Branch
+}
+
+func (m *Model) buildActionKeys() []components.KeyBinding {
+	return []components.KeyBinding{
+		{Key: "b", Label: "build"},
+		{Key: "h", Label: "hydrate"},
+		{Key: "c", Label: "caches"},
+		{Key: "v", Label: "validations"},
+	}
+}
+
+func (m *Model) renderContent() string {
 	var content strings.Builder
 
 	content.WriteString("Navigation:\n")
@@ -65,7 +80,6 @@ func (m *Model) View() string {
 		content.WriteString("  " + hint.Render() + "\n")
 	}
 
-	// Use Card component
 	card := primitives.Card{
 		Title:   "Keyboard Shortcuts",
 		Content: content.String(),
@@ -77,4 +91,20 @@ func (m *Model) View() string {
 		width = 80
 	}
 	return card.Render(width)
+}
+
+func (m *Model) View() string {
+	layout := components.ScreenLayout{
+		Breadcrumb: []string{"🚀 Home", "Hints"},
+		Context:    m.buildContext(),
+		Content:    m.renderContent(),
+		ActionKeys: m.buildActionKeys(),
+		NavKeys: []components.KeyBinding{
+			{Key: "esc", Label: "back"},
+			{Key: "q", Label: "quit"},
+		},
+		Width:  m.Width,
+		Height: m.Height,
+	}
+	return layout.Render()
 }
