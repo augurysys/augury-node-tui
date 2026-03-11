@@ -164,8 +164,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		if msg.Height > 0 {
 			// ScreenLayout: top bar, separator, content (repo card + platform header), separator, bottom help
-			reservedHeight := 14
-			tableHeight := msg.Height - reservedHeight
+			tableHeight := msg.Height - components.ReservedLayoutHeight
 			if tableHeight < 5 {
 				tableHeight = 5
 			}

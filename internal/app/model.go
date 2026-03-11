@@ -137,6 +137,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if cim, _ := m.ci.Update(msg); cim != nil {
 			m.ci = cim.(*ci.Model)
 		}
+		if hm, _ := m.hints.Update(msg); hm != nil {
+			m.hints = hm.(*hints.Model)
+		}
 	}
 
 	switch m.route {

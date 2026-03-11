@@ -7,6 +7,10 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// ReservedLayoutHeight is the vertical space reserved for ScreenLayout chrome
+// (top bar, separators, bottom help). Use when computing content height.
+const ReservedLayoutHeight = 14
+
 type KeyBinding struct {
 	Key   string
 	Label string

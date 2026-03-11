@@ -219,8 +219,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.metricsBar.Width = msg.Width
 		m.cacheTable.SetWidth(m.Width)
 		if m.Height > 0 {
-			reservedHeight := 14
-			tableHeight := msg.Height - reservedHeight
+			tableHeight := msg.Height - components.ReservedLayoutHeight
 			if tableHeight < 5 {
 				tableHeight = 5
 			}

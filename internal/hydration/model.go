@@ -314,8 +314,7 @@ func (m *Model) renderContent() string {
 	table := components.NewDataTable(columns)
 	table.SetWidth(m.Width)
 	if m.Height > 0 {
-		reservedHeight := 14
-		tableHeight := m.Height - reservedHeight
+		tableHeight := m.Height - components.ReservedLayoutHeight
 		if tableHeight < 5 {
 			tableHeight = 5
 		}
