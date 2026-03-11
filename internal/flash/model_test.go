@@ -151,6 +151,104 @@ func TestModel_PlatformSelectEnter(t *testing.T) {
 	}
 }
 
+func TestModel_PlatformSelection(t *testing.T) {
+	platforms := []platform.Platform{
+		{ID: "mp255-ulrpm", OutputRelPath: "pkg/mp255-ulrpm"},
+		{ID: "cassia-x2000", OutputRelPath: "pkg/cassia-x2000"},
+	}
+
+	st := status.RepoStatus{Root: "/tmp/test"}
+	m := NewModel(st, platforms)
+	m.state = statePlatformSelect
+
+	// Select MP255 (supports method selection)
+	msg := PlatformSelectedMsg{PlatformID: "mp255-ulrpm"}
+	m2, _ := m.Update(msg)
+	model, ok := m2.(*Model)
+	if !ok {
+		t.Fatal("Update did not return *Model")
+	}
+
+	if model.state != stateMethodSelect {
+		t.Errorf("After selecting MP255, state = %v, want %v", model.state, stateMethodSelect)
+	}
+	if model.adapter == nil {
+		t.Error("adapter should be set for MP255")
+	}
+	if model.adapter.PlatformType() != PlatformTypeMP255 {
+		t.Errorf("adapter.PlatformType() = %v, want %v", model.adapter.PlatformType(), PlatformTypeMP255)
+	}
+
+	// Select Cassia (goes straight to flashing)
+	m = NewModel(st, platforms)
+	m.state = statePlatformSelect
+	m.cursor = 1 // cassia
+
+	msg2 := PlatformSelectedMsg{PlatformID: "cassia-x2000"}
+	m3, _ := m.Update(msg2)
+	model2, ok := m3.(*Model)
+	if !ok {
+		t.Fatal("Update did not return *Model")
+	}
+
+	if model2.state != stateFlashing {
+		t.Errorf("After selecting Cassia, state = %v, want %v", model2.state, stateFlashing)
+	}
+	if model2.adapter == nil {
+		t.Error("adapter should be set for Cassia")
+	}
+	if model2.adapter.PlatformType() != PlatformTypeSWUpdate {
+		t.Errorf("adapter.PlatformType() = %v, want %v", model2.adapter.PlatformType(), PlatformTypeSWUpdate)
+	}
+}
+
+func TestModel_PlatformSelectionErrors(t *testing.T) {
+	platforms := []platform.Platform{
+		{ID: "mp255-ulrpm", OutputRelPath: "pkg/mp255-ulrpm"},
+		{ID: "unknown-device", OutputRelPath: "pkg/unknown"},
+	}
+
+	st := status.RepoStatus{Root: "/tmp/test"}
+
+	t.Run("platform not found", func(t *testing.T) {
+		m := NewModel(st, platforms)
+		m.state = statePlatformSelect
+
+		msg := PlatformSelectedMsg{PlatformID: "nonexistent"}
+		m2, _ := m.Update(msg)
+		model, ok := m2.(*Model)
+		if !ok {
+			t.Fatal("Update did not return *Model")
+		}
+
+		if model.state != stateError {
+			t.Errorf("After unknown platform, state = %v, want stateError", model.state)
+		}
+		if model.err == nil {
+			t.Error("err should be set for unknown platform")
+		}
+	})
+
+	t.Run("unsupported platform type", func(t *testing.T) {
+		m := NewModel(st, platforms)
+		m.state = statePlatformSelect
+
+		msg := PlatformSelectedMsg{PlatformID: "unknown-device"}
+		m2, _ := m.Update(msg)
+		model, ok := m2.(*Model)
+		if !ok {
+			t.Fatal("Update did not return *Model")
+		}
+
+		if model.state != stateError {
+			t.Errorf("After unsupported type, state = %v, want stateError", model.state)
+		}
+		if model.err == nil {
+			t.Error("err should be set for unsupported type")
+		}
+	})
+}
+
 func TestModel_WindowResize(t *testing.T) {
 	platforms := []platform.Platform{
 		{ID: "mp255-ulrpm", OutputRelPath: "pkg/mp255-ulrpm"},

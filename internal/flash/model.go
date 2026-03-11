@@ -65,6 +65,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		return m.handleKey(msg)
+
+	case PlatformSelectedMsg:
+		return m.handlePlatformSelected(msg)
 	}
 
 	return m, nil
@@ -104,6 +107,46 @@ func (m *Model) handlePlatformSelectKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (m *Model) handleMethodSelectKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// TODO: Implement method selection keys
+	return m, nil
+}
+
+func (m *Model) handlePlatformSelected(msg PlatformSelectedMsg) (tea.Model, tea.Cmd) {
+	m.selectedPlatform = msg.PlatformID
+
+	// Find platform
+	var selectedPlatform *platform.Platform
+	for i := range m.Platforms {
+		if m.Platforms[i].ID == msg.PlatformID {
+			selectedPlatform = &m.Platforms[i]
+			break
+		}
+	}
+
+	if selectedPlatform == nil {
+		m.state = stateError
+		m.err = fmt.Errorf("platform not found: %s", msg.PlatformID)
+		return m, nil
+	}
+
+	outputPath := filepath.Join(m.Status.Root, selectedPlatform.OutputRelPath)
+
+	// Detect platform type and create adapter
+	ptype := DetectPlatformType(*selectedPlatform)
+	switch ptype {
+	case PlatformTypeMP255:
+		m.adapter = NewMP255Adapter(m.Status.Root, selectedPlatform.ID, outputPath)
+		m.state = stateMethodSelect
+		m.cursor = 0
+
+	case PlatformTypeSWUpdate:
+		m.adapter = NewSWUpdateAdapter(m.Status.Root, selectedPlatform.ID, outputPath)
+		m.state = stateFlashing
+
+	default:
+		m.state = stateError
+		m.err = fmt.Errorf("unsupported platform type: %s", ptype)
+	}
+
 	return m, nil
 }
 
