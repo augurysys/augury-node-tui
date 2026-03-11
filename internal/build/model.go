@@ -306,6 +306,10 @@ func (m *Model) hasFailed() bool {
 	return false
 }
 
+func (m *Model) isPreflight() bool {
+	return !m.isBuilding() && (m.Summary == nil || len(m.Summary.Rows) == 0)
+}
+
 func (m *Model) selectedPlatformCount() int {
 	var n int
 	for _, v := range m.Selected {
@@ -324,6 +328,11 @@ func (m *Model) buildActionKeys() []components.KeyBinding {
 		keys = append(keys, components.KeyBinding{Key: "c", Label: "cancel"})
 	} else if m.hasFailed() {
 		keys = append(keys, components.KeyBinding{Key: "t", Label: "retry"})
+	} else if m.isPreflight() {
+		keys = append(keys, components.KeyBinding{Key: "m", Label: "cycle mode"})
+		keys = append(keys, components.KeyBinding{Key: "f", Label: "toggle force"})
+		keys = append(keys, components.KeyBinding{Key: "enter", Label: "confirm"})
+		keys = append(keys, components.KeyBinding{Key: "b", Label: "back"})
 	}
 
 	return keys
@@ -426,7 +435,6 @@ func (m *Model) viewPreflightPlan() string {
 	if m.nixBlockedReason != "" {
 		b.WriteString(fmt.Sprintf("Blocked: %s\n", m.nixBlockedReason))
 	}
-	b.WriteString("m cycle mode | f toggle force rebuild | Enter confirm | Esc/b back\n")
 	b.WriteString("platforms in plan:\n")
 	var entries []PlanEntry
 	if len(plan.Entries) > 0 {

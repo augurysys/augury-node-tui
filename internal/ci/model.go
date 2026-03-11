@@ -139,7 +139,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.Height = msg.Height
 		if m.jobsTable != nil {
 			m.jobsTable.SetWidth(msg.Width)
-			m.jobsTable.SetHeight(msg.Height - 12)
+			m.jobsTable.SetHeight(msg.Height - components.ReservedLayoutHeight)
 		}
 		if m.logViewer != nil {
 			m.logViewer.SetWidth(msg.Width)
@@ -281,7 +281,7 @@ func (m *Model) initJobsTable() {
 		m.jobsTable.SetWidth(m.Width)
 	}
 	if m.Height > 0 {
-		m.jobsTable.SetHeight(m.Height - 12)
+		m.jobsTable.SetHeight(m.Height - components.ReservedLayoutHeight)
 	}
 
 	rows := make([]interface{}, 0, len(m.jobs))

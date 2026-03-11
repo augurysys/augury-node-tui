@@ -252,9 +252,9 @@ func (m *Model) renderContent() string {
 
 	// Platform table section (no border)
 	platformHeader := styles.Header.Render("🎯 Platforms")
-	hint := styles.Dim.Render(" (j/k: navigate • space: toggle)")
+	var hint string
 	if m.DeveloperDownloads == nil {
-		hint += "  " + styles.Warning.Render("⚠ developer-downloads unavailable")
+		hint = "  " + styles.Warning.Render("⚠ developer-downloads unavailable")
 	}
 	platformSection := platformHeader + hint + "\n" + m.platformTable.View()
 	sections = append(sections, platformSection)
