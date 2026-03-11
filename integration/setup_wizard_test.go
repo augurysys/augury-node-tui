@@ -118,7 +118,7 @@ func TestSetupWizard_FullFlowSimulation(t *testing.T) {
 		t.Fatalf("after nix (cascade): step %d, want 3", w.CurrentStep())
 	}
 
-	runUpdates(setup.InstallCheckMsg{AlreadyInstalled: true})
+	runUpdates(setup.BinaryBuiltMsg{Binary: "/tmp/augury-node-tui", AlreadyInstalled: true, Err: ""})
 	w = model.(*setup.WizardModel)
 	if w.CurrentStep() != 4 {
 		t.Fatalf("after install: step %d, want 4", w.CurrentStep())
