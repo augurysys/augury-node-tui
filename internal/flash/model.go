@@ -184,11 +184,25 @@ func (m *Model) handlePlatformSelected(msg PlatformSelectedMsg) (tea.Model, tea.
 	switch ptype {
 	case PlatformTypeMP255:
 		m.adapter = NewMP255Adapter(m.Status.Root, selectedPlatform.ID, outputPath)
+		// Validate prerequisites
+		if err := m.adapter.CanFlash(outputPath); err != nil {
+			m.state = stateError
+			m.err = err
+			return m, nil
+		}
+		// MP255 needs method selection
 		m.state = stateMethodSelect
-		m.cursor = 0
+		m.cursor = 0 // Reset cursor for method selection
 
 	case PlatformTypeSWUpdate:
 		m.adapter = NewSWUpdateAdapter(m.Status.Root, selectedPlatform.ID, outputPath)
+		// Validate prerequisites
+		if err := m.adapter.CanFlash(outputPath); err != nil {
+			m.state = stateError
+			m.err = err
+			return m, nil
+		}
+		// SWUpdate goes straight to flashing
 		m.state = stateFlashing
 
 	default:
@@ -341,14 +355,53 @@ func (m *Model) viewFlashing() string {
 }
 
 func (m *Model) viewComplete() string {
-	return "Flash complete!"
+	content := styles.Title.Render("Flash Complete!") + "\n\n"
+	content += fmt.Sprintf("Platform: %s\n", m.selectedPlatform)
+	if m.selectedMethod != "" {
+		content += fmt.Sprintf("Method: %s\n", m.selectedMethod)
+	}
+	content += "\n"
+	content += styles.Success.Render("✓ Firmware flashed successfully")
+
+	layout := components.ScreenLayout{
+		Breadcrumb: []string{"🚀 Home", "Flash", m.selectedPlatform},
+		Context:    "Success",
+		Content:    content,
+		ActionKeys: []components.KeyBinding{},
+		NavKeys: []components.KeyBinding{
+			{Key: "esc", Label: "back"},
+			{Key: "q", Label: "quit"},
+		},
+		Width:  m.Width,
+		Height: m.Height,
+	}
+
+	return layout.Render()
 }
 
 func (m *Model) viewError() string {
+	errMsg := "Unknown error"
 	if m.err != nil {
-		return fmt.Sprintf("Error: %v", m.err)
+		errMsg = m.err.Error()
 	}
-	return "Unknown error"
+
+	content := styles.Title.Render("Flash Error") + "\n\n"
+	content += styles.Error.Render(errMsg)
+
+	layout := components.ScreenLayout{
+		Breadcrumb: []string{"🚀 Home", "Flash"},
+		Context:    "Error",
+		Content:    content,
+		ActionKeys: []components.KeyBinding{},
+		NavKeys: []components.KeyBinding{
+			{Key: "esc", Label: "back"},
+			{Key: "q", Label: "quit"},
+		},
+		Width:  m.Width,
+		Height: m.Height,
+	}
+
+	return layout.Render()
 }
 
 func (m *Model) imagePath() string {

@@ -50,6 +50,7 @@ go test ./internal/flash/...
 **TODO:**
 - MP255 deploy.sh integration
 - Step execution with output streaming
+- SWUpdate .swu file resolution (OutputRelPath is directory, need to find .swu file)
 - Error handling and retry
 - Log file capture
 - Cancel support

@@ -1,6 +1,8 @@
 package flash
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -8,6 +10,47 @@ import (
 	"github.com/augurysys/augury-node-tui/internal/status"
 	tea "github.com/charmbracelet/bubbletea"
 )
+
+// setupValidFlashRoot creates a temp dir with MP255 and SWUpdate prerequisites
+// so CanFlash passes. Returns (root, platforms).
+func setupValidFlashRoot(t *testing.T) (string, []platform.Platform) {
+	t.Helper()
+	root := t.TempDir()
+
+	// MP255: release dir + deploy.sh
+	mp255Release := filepath.Join(root, "pkg", "mp255-ulrpm")
+	if err := os.MkdirAll(mp255Release, 0755); err != nil {
+		t.Fatal(err)
+	}
+	deployDir := filepath.Join(root, "yocto")
+	if err := os.MkdirAll(deployDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	deploySh := filepath.Join(deployDir, "deploy.sh")
+	if err := os.WriteFile(deploySh, []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// SWUpdate: image path (dir or file) + augury_update
+	cassiaPath := filepath.Join(root, "pkg", "cassia-x2000")
+	if err := os.MkdirAll(cassiaPath, 0755); err != nil {
+		t.Fatal(err)
+	}
+	auguryDir := filepath.Join(root, "common", "otsn")
+	if err := os.MkdirAll(auguryDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	auguryUpdate := filepath.Join(auguryDir, "augury_update")
+	if err := os.WriteFile(auguryUpdate, []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	platforms := []platform.Platform{
+		{ID: "mp255-ulrpm", OutputRelPath: "pkg/mp255-ulrpm"},
+		{ID: "cassia-x2000", OutputRelPath: "pkg/cassia-x2000"},
+	}
+	return root, platforms
+}
 
 func TestModel_StateTransitions(t *testing.T) {
 	platforms := []platform.Platform{
@@ -152,12 +195,8 @@ func TestModel_PlatformSelectEnter(t *testing.T) {
 }
 
 func TestModel_PlatformSelection(t *testing.T) {
-	platforms := []platform.Platform{
-		{ID: "mp255-ulrpm", OutputRelPath: "pkg/mp255-ulrpm"},
-		{ID: "cassia-x2000", OutputRelPath: "pkg/cassia-x2000"},
-	}
-
-	st := status.RepoStatus{Root: "/tmp/test"}
+	root, platforms := setupValidFlashRoot(t)
+	st := status.RepoStatus{Root: root}
 	m := NewModel(st, platforms)
 	m.state = statePlatformSelect
 
@@ -273,11 +312,8 @@ func TestModel_WindowResize(t *testing.T) {
 }
 
 func TestModel_ViewMethodSelect(t *testing.T) {
-	platforms := []platform.Platform{
-		{ID: "mp255-ulrpm", OutputRelPath: "pkg/mp255-ulrpm"},
-	}
-
-	st := status.RepoStatus{Root: "/tmp/test"}
+	root, platforms := setupValidFlashRoot(t)
+	st := status.RepoStatus{Root: root}
 	m := NewModel(st, platforms)
 	m.state = statePlatformSelect
 
@@ -307,11 +343,8 @@ func TestModel_ViewMethodSelect(t *testing.T) {
 }
 
 func TestModel_MethodSelectKeyboardNavigation(t *testing.T) {
-	platforms := []platform.Platform{
-		{ID: "mp255-ulrpm", OutputRelPath: "pkg/mp255-ulrpm"},
-	}
-
-	st := status.RepoStatus{Root: "/tmp/test"}
+	root, platforms := setupValidFlashRoot(t)
+	st := status.RepoStatus{Root: root}
 	m := NewModel(st, platforms)
 	m.state = statePlatformSelect
 
@@ -344,11 +377,8 @@ func TestModel_MethodSelectKeyboardNavigation(t *testing.T) {
 }
 
 func TestModel_MethodSelectEnter(t *testing.T) {
-	platforms := []platform.Platform{
-		{ID: "mp255-ulrpm", OutputRelPath: "pkg/mp255-ulrpm"},
-	}
-
-	st := status.RepoStatus{Root: "/tmp/test"}
+	root, platforms := setupValidFlashRoot(t)
+	st := status.RepoStatus{Root: root}
 	m := NewModel(st, platforms)
 	m.state = statePlatformSelect
 
@@ -375,11 +405,8 @@ func TestModel_MethodSelectEnter(t *testing.T) {
 }
 
 func TestModel_MethodSelectNumberKey(t *testing.T) {
-	platforms := []platform.Platform{
-		{ID: "mp255-ulrpm", OutputRelPath: "pkg/mp255-ulrpm"},
-	}
-
-	st := status.RepoStatus{Root: "/tmp/test"}
+	root, platforms := setupValidFlashRoot(t)
+	st := status.RepoStatus{Root: root}
 	m := NewModel(st, platforms)
 	m.state = statePlatformSelect
 
@@ -405,11 +432,8 @@ func TestModel_MethodSelectNumberKey(t *testing.T) {
 }
 
 func TestModel_MethodSelectEsc(t *testing.T) {
-	platforms := []platform.Platform{
-		{ID: "mp255-ulrpm", OutputRelPath: "pkg/mp255-ulrpm"},
-	}
-
-	st := status.RepoStatus{Root: "/tmp/test"}
+	root, platforms := setupValidFlashRoot(t)
+	st := status.RepoStatus{Root: root}
 	m := NewModel(st, platforms)
 	m.state = statePlatformSelect
 
@@ -435,11 +459,8 @@ func TestModel_MethodSelectEsc(t *testing.T) {
 }
 
 func TestModel_ViewFlashing_MP255(t *testing.T) {
-	platforms := []platform.Platform{
-		{ID: "mp255-ulrpm", OutputRelPath: "pkg/mp255-ulrpm"},
-	}
-
-	st := status.RepoStatus{Root: "/tmp/test"}
+	root, platforms := setupValidFlashRoot(t)
+	st := status.RepoStatus{Root: root}
 	m := NewModel(st, platforms)
 	m.state = statePlatformSelect
 
@@ -480,11 +501,8 @@ func TestModel_ViewFlashing_MP255(t *testing.T) {
 }
 
 func TestModel_ViewFlashing_SWUpdate(t *testing.T) {
-	platforms := []platform.Platform{
-		{ID: "cassia-x2000", OutputRelPath: "pkg/cassia-x2000"},
-	}
-
-	st := status.RepoStatus{Root: "/tmp/test"}
+	root, platforms := setupValidFlashRoot(t)
+	st := status.RepoStatus{Root: root}
 	m := NewModel(st, platforms)
 	m.state = statePlatformSelect
 
@@ -517,11 +535,8 @@ func TestModel_ViewFlashing_SWUpdate(t *testing.T) {
 }
 
 func TestModel_FlashingEsc_MP255(t *testing.T) {
-	platforms := []platform.Platform{
-		{ID: "mp255-ulrpm", OutputRelPath: "pkg/mp255-ulrpm"},
-	}
-
-	st := status.RepoStatus{Root: "/tmp/test"}
+	root, platforms := setupValidFlashRoot(t)
+	st := status.RepoStatus{Root: root}
 	m := NewModel(st, platforms)
 	m.state = statePlatformSelect
 
@@ -552,11 +567,8 @@ func TestModel_FlashingEsc_MP255(t *testing.T) {
 }
 
 func TestModel_FlashingEsc_SWUpdate(t *testing.T) {
-	platforms := []platform.Platform{
-		{ID: "cassia-x2000", OutputRelPath: "pkg/cassia-x2000"},
-	}
-
-	st := status.RepoStatus{Root: "/tmp/test"}
+	root, platforms := setupValidFlashRoot(t)
+	st := status.RepoStatus{Root: root}
 	m := NewModel(st, platforms)
 	m.state = statePlatformSelect
 
