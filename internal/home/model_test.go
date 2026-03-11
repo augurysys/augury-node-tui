@@ -161,6 +161,18 @@ func TestHomeModel_KeyO_EmitsNavigate(t *testing.T) {
 	}
 }
 
+func TestHomeModel_KeyF_EmitsGoToFlash(t *testing.T) {
+	m := NewModel(status.RepoStatus{Root: "/x", Branch: "main", SHA: "x"}, platform.Registry())
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("f")})
+	if cmd == nil {
+		t.Fatal("f key should return command")
+	}
+	result := cmd()
+	if _, ok := result.(nav.GoToFlash); !ok {
+		t.Errorf("f key returned %T, want nav.GoToFlash", result)
+	}
+}
+
 func TestHomeModel_KeyJ_MovesFocusDown(t *testing.T) {
 	platforms := platform.Registry()
 	if len(platforms) < 2 {

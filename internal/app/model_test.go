@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/augurysys/augury-node-tui/internal/engine"
+	"github.com/augurysys/augury-node-tui/internal/nav"
 	"github.com/augurysys/augury-node-tui/internal/platform"
 	"github.com/augurysys/augury-node-tui/internal/status"
 	"github.com/augurysys/augury-node-tui/internal/ui"
@@ -194,6 +195,31 @@ func TestApp_ReturnFromHints_GoesToHome(t *testing.T) {
 	m = model.(*Model)
 	if m.Route() != "home" {
 		t.Errorf("b from hints should go to home; got %q", m.Route())
+	}
+}
+
+func TestApp_GoToFlash_TransitionsToFlashRoute(t *testing.T) {
+	m := NewModel(stubStatus(), platform.Registry(), 2*time.Second)
+	m.route = "home"
+	model, _ := m.Update(nav.GoToFlash{})
+	m = model.(*Model)
+	if m.Route() != "flash" {
+		t.Errorf("After GoToFlash, route = %v, want flash", m.Route())
+	}
+	if m.flash == nil {
+		t.Error("flash model should be initialized")
+	}
+}
+
+func TestApp_FlashBack_ReturnsToHome(t *testing.T) {
+	m := NewModel(stubStatus(), platform.Registry(), 2*time.Second)
+	m.route = "home"
+	model, _ := m.Update(nav.GoToFlash{})
+	m = model.(*Model)
+	model, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("b")})
+	m = model.(*Model)
+	if m.Route() != "home" {
+		t.Errorf("After b from flash, route = %v, want home", m.Route())
 	}
 }
 

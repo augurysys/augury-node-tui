@@ -8,6 +8,7 @@ import (
 	"github.com/augurysys/augury-node-tui/internal/ci"
 	"github.com/augurysys/augury-node-tui/internal/config"
 	"github.com/augurysys/augury-node-tui/internal/engine"
+	"github.com/augurysys/augury-node-tui/internal/flash"
 	"github.com/augurysys/augury-node-tui/internal/home"
 	"github.com/augurysys/augury-node-tui/internal/hints"
 	"github.com/augurysys/augury-node-tui/internal/hydration"
@@ -30,6 +31,7 @@ type Model struct {
 	validations *validations.Model
 	hints       *hints.Model
 	ci          *ci.Model
+	flash       *flash.Model
 }
 
 func newModel(st status.RepoStatus, platforms []platform.Platform, splashTimeout time.Duration, nix engine.NixState) *Model {
@@ -115,6 +117,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case nav.NavigateBackMsg:
 		m.route = "home"
 		return m, nil
+	case nav.GoToFlash:
+		if m.flash == nil {
+			m.flash = flash.NewModel(m.home.Status, m.home.Platforms)
+			m.flash.Width = m.home.Width
+			m.flash.Height = m.home.Height
+		}
+		m.route = "flash"
+		return m, m.flash.Init()
 	case tea.QuitMsg:
 		return m, tea.Quit
 	case tea.WindowSizeMsg:
@@ -139,6 +149,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if hm, _ := m.hints.Update(msg); hm != nil {
 			m.hints = hm.(*hints.Model)
+		}
+		if m.flash != nil {
+			if fm, _ := m.flash.Update(msg); fm != nil {
+				m.flash = fm.(*flash.Model)
+			}
 		}
 	}
 
@@ -178,6 +193,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		child, cmd := m.ci.Update(msg)
 		m.ci = child.(*ci.Model)
 		return m, cmd
+	case "flash":
+		child, cmd := m.flash.Update(msg)
+		m.flash = child.(*flash.Model)
+		return m, cmd
 	default:
 		return m, nil
 	}
@@ -201,6 +220,8 @@ func (m *Model) View() string {
 		return m.hints.View()
 	case "ci":
 		return m.ci.View()
+	case "flash":
+		return m.flash.View()
 	default:
 		return ""
 	}

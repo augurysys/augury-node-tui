@@ -113,6 +113,7 @@ func (m *Model) buildActionKeys() []components.KeyBinding {
 	keys = append(keys, components.KeyBinding{Key: "a", Label: "replay"})
 	keys = append(keys, components.KeyBinding{Key: "r", Label: "refresh"})
 	keys = append(keys, components.KeyBinding{Key: "c", Label: "caches"})
+	keys = append(keys, components.KeyBinding{Key: "f", Label: "flash"})
 	keys = append(keys, components.KeyBinding{Key: "v", Label: "validations"})
 	keys = append(keys, components.KeyBinding{Key: "o", Label: "hints"})
 	keys = append(keys, components.KeyBinding{Key: "p", Label: "pipeline"})
@@ -192,6 +193,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, func() tea.Msg { return nav.NavigateMsg{Route: "hints"} }
 		case "p":
 			return m, func() tea.Msg { return nav.NavigateMsg{Route: "ci"} }
+		case "f":
+			return m, func() tea.Msg { return nav.GoToFlash{} }
 		case "j", "down", "k", "up":
 			m.platformTable.Update(msg)
 			return m, nil

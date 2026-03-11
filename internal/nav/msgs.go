@@ -7,3 +7,6 @@ type NavigateMsg struct {
 type ReplaySplashMsg struct{}
 
 type NavigateBackMsg struct{}
+
+// GoToFlash navigates to flash screen
+type GoToFlash struct{}
